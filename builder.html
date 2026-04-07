@@ -7,22 +7,10 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0a0a0a;
-    --panel: #111111;
-    --panel-2: #161616;
-    --border: #222;
-    --border-hi: #333;
-    --text: #e8e8e8;
-    --text-dim: #888;
-    --accent: #b6ff3c;
-    --accent-dim: #5d8a1c;
-    --danger: #ff4d4d;
-    --node-trigger: #ffb84d;
-    --node-llm: #b6ff3c;
-    --node-http: #4dd0ff;
-    --node-condition: #c97eff;
-    --node-switch: #ff9e4d;
-    --node-output: #ff6ec7;
+    --bg: #0a0a0a; --panel: #111; --panel-2: #161616; --border: #222; --border-hi: #333;
+    --text: #e8e8e8; --text-dim: #888; --accent: #b6ff3c; --accent-dim: #5d8a1c; --danger: #ff4d4d;
+    --node-trigger: #ffb84d; --node-llm: #b6ff3c; --node-http: #4dd0ff;
+    --node-condition: #c97eff; --node-switch: #ff9e4d; --node-output: #ff6ec7;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; overflow: hidden; -webkit-font-smoothing: antialiased; }
@@ -43,6 +31,9 @@
   button:hover { border-color: var(--accent); color: var(--accent); }
   button.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
   button.primary:hover { background: #c4ff5c; color: #000; }
+  button.icon-btn { padding: 6px 8px; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button:disabled:hover { border-color: var(--border-hi); color: var(--text); }
 
   .sidebar { grid-area: sidebar; background: var(--panel); border-right: 1px solid var(--border); padding: 16px; overflow-y: auto; }
   .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); margin-bottom: 12px; margin-top: 8px; }
@@ -53,12 +44,15 @@
   .palette-icon { width: 24px; height: 24px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; color: #000; flex-shrink: 0; }
   .palette-name { font-size: 12px; font-weight: 500; }
   .palette-desc { font-size: 10px; color: var(--text-dim); }
+  .shortcut-list { font-size: 10px; color: var(--text-dim); line-height: 1.9; }
+  .shortcut-list kbd { background: var(--panel-2); border: 1px solid var(--border-hi); padding: 1px 5px; border-radius: 3px; font-family: inherit; font-size: 9px; color: var(--text); margin: 0 1px; }
 
   .canvas-wrap { grid-area: canvas; background: radial-gradient(circle at 1px 1px, #1a1a1a 1px, transparent 0); background-size: 20px 20px; background-color: var(--bg); position: relative; overflow: hidden; }
   .canvas { position: absolute; inset: 0; cursor: default; }
   .canvas.panning { cursor: grabbing; }
   .canvas.dragging-over { background-color: #0f1408; }
   .canvas-inner { position: absolute; top: 0; left: 0; width: 0; height: 0; transform-origin: 0 0; will-change: transform; }
+  .selection-rect { position: absolute; border: 1px dashed var(--accent); background: rgba(182,255,60,0.05); pointer-events: none; z-index: 3; }
 
   svg.connections { position: absolute; top: -10000px; left: -10000px; width: 20000px; height: 20000px; pointer-events: none; overflow: visible; }
   svg.connections path { fill: none; stroke: var(--border-hi); stroke-width: 2; transition: stroke 0.15s; }
@@ -91,10 +85,16 @@
   .zoom-hud button:hover { background: var(--panel-2); color: var(--accent); }
   .zoom-hud .zoom-value { color: var(--text-dim); font-size: 10px; min-width: 36px; text-align: center; padding: 0 4px; }
 
+  /* Minimap */
+  .minimap { position: absolute; bottom: 50px; left: 16px; width: 180px; height: 110px; background: var(--panel); border: 1px solid var(--border-hi); border-radius: 6px; padding: 4px; z-index: 5; cursor: pointer; }
+  .minimap canvas { width: 100%; height: 100%; display: block; border-radius: 3px; }
+  .minimap-label { position: absolute; top: -18px; left: 0; font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; }
+
   .inspector { grid-area: inspector; background: var(--panel); border-left: 1px solid var(--border); padding: 16px; overflow-y: auto; }
   .inspector .empty { color: var(--text-dim); font-size: 11px; line-height: 1.6; }
   .field { margin-bottom: 14px; }
-  .field label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 6px; }
+  .field label { display: flex; justify-content: space-between; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 6px; }
+  .field label .char-count { color: var(--border-hi); font-size: 9px; }
   .field input, .field textarea, .field select { width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--border-hi); border-radius: 4px; padding: 8px 10px; font-family: inherit; font-size: 12px; }
   .field input:focus, .field textarea:focus, .field select:focus { outline: none; border-color: var(--accent); }
   .field textarea { resize: vertical; min-height: 80px; font-size: 11px; line-height: 1.5; }
@@ -109,6 +109,11 @@
   .branch-editor button.add-branch { width: 100%; margin-top: 4px; font-size: 10px; padding: 6px; }
   .delete-node { width: 100%; margin-top: 12px; background: transparent; border-color: var(--border-hi); }
   .delete-node:hover { background: rgba(255,77,77,0.1); border-color: var(--danger); color: var(--danger); }
+  .connections-list { background: var(--panel-2); border: 1px solid var(--border-hi); border-radius: 4px; padding: 8px; font-size: 10px; color: var(--text-dim); }
+  .connections-list .conn { padding: 3px 0; }
+  .connections-list .conn .arrow { color: var(--accent); margin: 0 6px; }
+  .connections-list .conn code { color: var(--text); background: var(--bg); padding: 1px 4px; border-radius: 3px; }
+  .multi-select-info { background: rgba(182,255,60,0.05); border: 1px solid var(--accent-dim); border-radius: 4px; padding: 12px; font-size: 11px; color: var(--text); line-height: 1.6; }
 
   .run-panel { position: absolute; bottom: 0; left: 0; right: 0; background: var(--panel); border-top: 1px solid var(--border); max-height: 50%; display: flex; flex-direction: column; transform: translateY(calc(100% - 36px)); transition: transform 0.25s ease; z-index: 6; }
   .run-panel.open { transform: translateY(0); }
@@ -131,6 +136,38 @@
   .modal h2 { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 24px; margin-bottom: 4px; color: var(--accent); }
   .modal p { font-size: 11px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.6; }
 
+  /* Command palette modal */
+  .cmd-palette-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: flex-start; justify-content: center; padding-top: 120px; z-index: 100; }
+  .cmd-palette-bg.open { display: flex; }
+  .cmd-palette { background: var(--panel); border: 1px solid var(--border-hi); border-radius: 8px; width: 520px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,0.6); overflow: hidden; }
+  .cmd-palette input { width: 100%; background: transparent; color: var(--text); border: none; padding: 16px 20px; font-family: inherit; font-size: 14px; border-bottom: 1px solid var(--border); }
+  .cmd-palette input:focus { outline: none; }
+  .cmd-results { max-height: 300px; overflow-y: auto; }
+  .cmd-result { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; border-left: 2px solid transparent; }
+  .cmd-result:hover, .cmd-result.selected { background: var(--panel-2); border-left-color: var(--accent); }
+  .cmd-result .palette-icon { width: 28px; height: 28px; }
+  .cmd-result-text { flex: 1; }
+  .cmd-result-name { font-size: 12px; font-weight: 500; color: var(--text); }
+  .cmd-result-desc { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+  .cmd-hint { padding: 8px 16px; font-size: 9px; color: var(--text-dim); border-top: 1px solid var(--border); display: flex; gap: 12px; }
+  .cmd-hint kbd { background: var(--panel-2); border: 1px solid var(--border-hi); padding: 1px 5px; border-radius: 3px; }
+
+  /* Toast container */
+  .toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; align-items: center; z-index: 200; pointer-events: none; }
+  .toast { background: var(--panel); border: 1px solid var(--border-hi); padding: 10px 16px; border-radius: 6px; font-size: 12px; color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,0.5); opacity: 0; transform: translateY(20px); transition: all 0.25s ease; pointer-events: auto; min-width: 200px; max-width: 400px; text-align: center; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { border-color: var(--accent-dim); border-left: 3px solid var(--accent); }
+  .toast.error { border-color: var(--danger); border-left: 3px solid var(--danger); }
+  .toast.info { border-left: 3px solid var(--text-dim); }
+
+  /* Custom confirm dialog */
+  .confirm-modal { background: var(--panel); border: 1px solid var(--border-hi); border-radius: 8px; padding: 24px; width: 400px; max-width: 90vw; }
+  .confirm-modal h3 { font-size: 14px; margin-bottom: 8px; color: var(--text); }
+  .confirm-modal p { font-size: 12px; color: var(--text-dim); margin-bottom: 20px; line-height: 1.5; }
+  .confirm-modal .actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .confirm-modal button.danger { background: var(--danger); color: #000; border-color: var(--danger); font-weight: 700; }
+  .confirm-modal button.danger:hover { background: #ff6666; color: #000; }
+
   .empty-canvas { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; color: var(--text-dim); text-align: center; z-index: 1; }
   .empty-canvas h3 { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 32px; margin-bottom: 8px; color: var(--text); }
   .empty-canvas p { font-size: 12px; max-width: 320px; line-height: 1.6; }
@@ -143,10 +180,12 @@
 <div class="app">
   <header>
     <div class="logo">Agentix</div>
-    <span class="version-badge">v1.0</span>
+    <span class="version-badge">v1.1</span>
     <input type="text" class="agent-name" id="agentName" value="untitled-agent" />
     <span class="save-indicator" id="saveIndicator">●</span>
     <div class="header-actions">
+      <button class="icon-btn" id="undoBtn" title="Undo (⌘Z)" disabled>↶</button>
+      <button class="icon-btn" id="redoBtn" title="Redo (⌘⇧Z)" disabled>↷</button>
       <button id="settingsBtn">⚙ Provider</button>
       <button id="newBtn">＋ New</button>
       <button id="saveBtn">↓ Export</button>
@@ -158,18 +197,18 @@
   <aside class="sidebar">
     <div class="section-title">Nodes</div>
     <div class="node-palette" id="palette"></div>
-    <div class="section-title">Tips</div>
-    <p style="font-size: 10px; color: var(--text-dim); line-height: 1.7;">
-      • Drag nodes to canvas<br>
-      • Click ports to connect<br>
-      • <code style="background:var(--panel-2);padding:1px 4px;border-radius:3px;color:var(--accent)">{{input}}</code> = previous output<br>
-      • <code style="background:var(--panel-2);padding:1px 4px;border-radius:3px;color:var(--accent)">{{n1}}</code> = node by id<br>
-      • Hold space + drag to pan<br>
-      • Mouse wheel to zoom<br>
-      • Auto-saved to localStorage
-    </p>
+    <div class="section-title">Shortcuts</div>
+    <div class="shortcut-list">
+      <kbd>⌘K</kbd> command palette<br>
+      <kbd>⌘Z</kbd> / <kbd>⌘⇧Z</kbd> undo / redo<br>
+      <kbd>⌘D</kbd> duplicate node<br>
+      <kbd>Del</kbd> delete selected<br>
+      <kbd>⇧</kbd> + click — multi-select<br>
+      <kbd>space</kbd> + drag — pan<br>
+      <kbd>scroll</kbd> — zoom
+    </div>
     <p style="font-size: 10px; color: var(--text-dim); margin-top: 16px;">
-      v1.0.0 — open source<br>
+      v1.1.0 — open source<br>
       <a href="https://github.com/MiguelAngelDiRocco/agentix" style="color: var(--accent);">github.com/agentix</a>
     </p>
   </aside>
@@ -181,9 +220,14 @@
       </div>
       <div class="empty-canvas" id="emptyState">
         <h3>Build your agent</h3>
-        <p>Drag a node from the left to start. Connect them with the ports on each side. Hit Run when you're ready.</p>
+        <p>Drag a node from the left, or hit <kbd>⌘K</kbd> to open the command palette and add nodes by name.</p>
         <div class="shortcut"><kbd>space</kbd> + drag to pan · <kbd>scroll</kbd> to zoom</div>
       </div>
+    </div>
+
+    <div class="minimap" id="minimap" title="Click to navigate">
+      <div class="minimap-label">Minimap</div>
+      <canvas id="minimapCanvas" width="172" height="100"></canvas>
     </div>
 
     <div class="zoom-hud">
@@ -210,6 +254,7 @@
   </aside>
 </div>
 
+<!-- Settings modal -->
 <div class="modal-bg" id="settingsModal">
   <div class="modal">
     <h2>Provider Settings</h2>
@@ -223,14 +268,12 @@
     </div>
     <div id="ollamaSettings">
       <div id="httpsWarning" style="display:none; background: #2a1a05; border: 1px solid #ffb84d; border-radius: 6px; padding: 12px; margin-bottom: 14px; font-size: 11px; line-height: 1.6; color: #ffd699;">
-        <strong style="color: #ffb84d;">⚠ Heads up:</strong> this page is loaded over HTTPS, but Ollama runs on HTTP at localhost. Browsers block this combination (mixed content). To use Ollama, run the builder locally:
+        <strong style="color: #ffb84d;">⚠ Heads up:</strong> this page is loaded over HTTPS, but Ollama runs on HTTP at localhost. Browsers block this combination (mixed content). Run the builder locally:
         <code style="display:block; margin-top:6px; padding:6px 8px; background:#0a0a0a; border-radius:3px; color:#b6ff3c;">python3 -m http.server 8000</code>
-        Then open <code style="color:#b6ff3c;">http://localhost:8000/builder.html</code>. Or use the Anthropic API provider above.
       </div>
       <div class="field">
         <label>Ollama URL</label>
         <input type="text" id="ollamaUrlInput" placeholder="http://localhost:11434" />
-        <div class="hint">Default is http://localhost:11434. Make sure Ollama is running and CORS is enabled.</div>
       </div>
       <div class="field">
         <label>Model</label>
@@ -240,14 +283,13 @@
           <option value="qwen2.5:7b">Qwen 2.5 7B (smarter, heavier)</option>
           <option value="llama3.1:8b">Llama 3.1 8B (smarter, heavier)</option>
         </select>
-        <div class="hint">Pull the model first: <code style="background:var(--panel-2);padding:2px 4px;border-radius:3px">ollama pull llama3.2:3b</code></div>
       </div>
     </div>
     <div id="anthropicSettings" style="display:none">
       <div class="field">
         <label>Anthropic API Key</label>
         <input type="password" id="apiKeyInput" placeholder="sk-ant-..." />
-        <div class="hint">Stored in localStorage only. Get a key at console.anthropic.com. Your Pro plan ($20/mo) does NOT include API access.</div>
+        <div class="hint">Stored in localStorage only. Get a key at console.anthropic.com.</div>
       </div>
       <div class="field">
         <label>Model</label>
@@ -265,10 +307,38 @@
   </div>
 </div>
 
+<!-- Command palette -->
+<div class="cmd-palette-bg" id="cmdPaletteBg">
+  <div class="cmd-palette">
+    <input type="text" id="cmdSearch" placeholder="Add a node..." autocomplete="off" />
+    <div class="cmd-results" id="cmdResults"></div>
+    <div class="cmd-hint">
+      <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+      <span><kbd>↵</kbd> add</span>
+      <span><kbd>esc</kbd> close</span>
+    </div>
+  </div>
+</div>
+
+<!-- Custom confirm modal -->
+<div class="modal-bg" id="confirmBg">
+  <div class="confirm-modal">
+    <h3 id="confirmTitle">Confirm</h3>
+    <p id="confirmMessage"></p>
+    <div class="actions">
+      <button id="confirmCancel">Cancel</button>
+      <button class="danger" id="confirmOk">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
 <input type="file" id="fileInput" accept=".json" style="display:none" />
 
 <script>
-/* AGENTIX v1.0 — Visual Agent Builder */
+/* AGENTIX v1.1 — Visual Agent Builder */
 
 const NODE_TYPES = {
   trigger: { name: 'Trigger', desc: 'Manual input', color: 'var(--node-trigger)', icon: '►', inputs: 0, outputs: 1,
@@ -287,8 +357,8 @@ const NODE_TYPES = {
   condition: { name: 'Condition', desc: 'If contains, branch', color: 'var(--node-condition)', icon: '?', inputs: 1, outputs: 2,
     fields: [
       { key: 'contains', label: 'If output contains...', type: 'text', placeholder: 'success' },
-      { key: 'thenValue', label: 'Then output (port "then")', type: 'textarea', placeholder: 'matched' },
-      { key: 'elseValue', label: 'Else output (port "else")', type: 'textarea', placeholder: 'not matched' },
+      { key: 'thenValue', label: 'Then output', type: 'textarea', placeholder: 'matched' },
+      { key: 'elseValue', label: 'Else output', type: 'textarea', placeholder: 'not matched' },
     ] },
   switch: { name: 'Switch', desc: 'Multi-branch routing', color: 'var(--node-switch)', icon: '⤨', inputs: 1, outputs: 'dynamic',
     fields: [{ key: 'branches', label: 'Branches', type: 'branches' }] },
@@ -296,7 +366,7 @@ const NODE_TYPES = {
 };
 
 let state = {
-  nodes: {}, edges: [], selected: null, nextId: 1, agentName: 'untitled-agent',
+  nodes: {}, edges: [], selectedSet: new Set(), selected: null, nextId: 1, agentName: 'untitled-agent',
   view: { panX: 0, panY: 0, zoom: 1 },
 };
 
@@ -304,9 +374,13 @@ let pendingConnection = null;
 let isPanning = false;
 let panStart = null;
 let spaceDown = false;
+let isSelecting = false;
+let selectStart = null;
+let selectRectEl = null;
 
 const AUTOSAVE_KEY = 'agentix_autosave_v1';
 
+/* ─── settings persistence ─── */
 function saveSettings(s) {
   localStorage.setItem('agentix_provider', s.provider);
   localStorage.setItem('agentix_apikey', s.apiKey);
@@ -326,6 +400,58 @@ function getSettings() {
   };
 }
 
+/* ─── undo/redo history ─── */
+let history = [];
+let historyIdx = -1;
+let isRestoring = false;
+
+function snapshotState() {
+  return JSON.stringify({ nodes: state.nodes, edges: state.edges, agentName: state.agentName, nextId: state.nextId });
+}
+function pushSnapshot() {
+  if (isRestoring) return;
+  const snap = snapshotState();
+  if (history[historyIdx] === snap) return;
+  history = history.slice(0, historyIdx + 1);
+  history.push(snap);
+  if (history.length > 100) { history.shift(); historyIdx--; }
+  historyIdx = history.length - 1;
+  updateUndoButtons();
+}
+function undo() {
+  if (historyIdx <= 0) { toast('Nothing to undo', 'info', 1200); return; }
+  historyIdx--;
+  restoreSnapshot(history[historyIdx]);
+  toast('Undone', 'info', 1000);
+}
+function redo() {
+  if (historyIdx >= history.length - 1) { toast('Nothing to redo', 'info', 1200); return; }
+  historyIdx++;
+  restoreSnapshot(history[historyIdx]);
+  toast('Redone', 'info', 1000);
+}
+function restoreSnapshot(snap) {
+  isRestoring = true;
+  const data = JSON.parse(snap);
+  state.nodes = data.nodes;
+  state.edges = data.edges;
+  state.agentName = data.agentName;
+  state.nextId = data.nextId;
+  state.selectedSet = new Set();
+  state.selected = null;
+  document.getElementById('agentName').value = state.agentName;
+  renderNodes();
+  renderInspector();
+  renderMinimap();
+  updateUndoButtons();
+  isRestoring = false;
+}
+function updateUndoButtons() {
+  document.getElementById('undoBtn').disabled = historyIdx <= 0;
+  document.getElementById('redoBtn').disabled = historyIdx >= history.length - 1;
+}
+
+/* ─── auto-save (also pushes history snapshot) ─── */
 let autosaveTimer = null;
 function markDirty() {
   const ind = document.getElementById('saveIndicator');
@@ -333,11 +459,13 @@ function markDirty() {
   ind.textContent = '●';
   clearTimeout(autosaveTimer);
   autosaveTimer = setTimeout(() => {
-    const data = { name: state.agentName, version: '1.0.0', nodes: state.nodes, edges: state.edges, view: state.view, nextId: state.nextId, savedAt: Date.now() };
+    const data = { name: state.agentName, version: '1.1.0', nodes: state.nodes, edges: state.edges, view: state.view, nextId: state.nextId, savedAt: Date.now() };
     localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
     ind.classList.add('saved');
     ind.textContent = '✓ saved';
     setTimeout(() => { if (ind.classList.contains('saved')) ind.textContent = '✓'; }, 1500);
+    pushSnapshot();
+    renderMinimap();
   }, 400);
 }
 function loadAutosave() {
@@ -364,6 +492,48 @@ function nodeOutputCount(node) {
   return def.outputs;
 }
 
+/* ─── toast system ─── */
+function toast(message, type = 'info', duration = 2500) {
+  const container = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = message;
+  container.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => {
+    t.classList.remove('show');
+    setTimeout(() => t.remove(), 300);
+  }, duration);
+}
+
+/* ─── confirm dialog (replaces window.confirm) ─── */
+function confirmDialog(message, title = 'Confirm') {
+  return new Promise(resolve => {
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMessage').textContent = message;
+    const bg = document.getElementById('confirmBg');
+    bg.classList.add('open');
+    const ok = document.getElementById('confirmOk');
+    const cancel = document.getElementById('confirmCancel');
+    const onOk = () => { cleanup(); resolve(true); };
+    const onCancel = () => { cleanup(); resolve(false); };
+    const onKey = e => {
+      if (e.key === 'Escape') onCancel();
+      if (e.key === 'Enter') onOk();
+    };
+    function cleanup() {
+      bg.classList.remove('open');
+      ok.removeEventListener('click', onOk);
+      cancel.removeEventListener('click', onCancel);
+      document.removeEventListener('keydown', onKey);
+    }
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+    document.addEventListener('keydown', onKey);
+  });
+}
+
+/* ─── palette ─── */
 function renderPalette() {
   const el = document.getElementById('palette');
   el.innerHTML = '';
@@ -385,11 +555,11 @@ function screenToCanvas(sx, sy) {
     y: (sy - rect.top - state.view.panY) / state.view.zoom,
   };
 }
-
 function applyViewTransform() {
   const inner = document.getElementById('canvasInner');
   inner.style.transform = `translate(${state.view.panX}px, ${state.view.panY}px) scale(${state.view.zoom})`;
   document.getElementById('zoomValue').textContent = Math.round(state.view.zoom * 100) + '%';
+  renderMinimap();
 }
 
 const canvas = document.getElementById('canvas');
@@ -415,18 +585,68 @@ function addNode(type, x, y) {
   renderNodes();
   selectNode(id);
   markDirty();
+  return id;
 }
 
-function deleteNode(id) {
-  delete state.nodes[id];
-  state.edges = state.edges.filter(e => e.from !== id && e.to !== id);
-  if (state.selected === id) state.selected = null;
+function addNodeAtCenter(type) {
+  const rect = canvas.getBoundingClientRect();
+  const pos = screenToCanvas(rect.width / 2, rect.height / 2);
+  addNode(type, pos.x - 90, pos.y - 30);
+  toast(`Added ${NODE_TYPES[type].name}`, 'success', 1200);
+}
+
+function duplicateSelected() {
+  if (state.selectedSet.size === 0) { toast('No node selected', 'info', 1200); return; }
+  const newIds = [];
+  for (const id of state.selectedSet) {
+    const orig = state.nodes[id];
+    if (!orig) continue;
+    const newId = 'n' + (state.nextId++);
+    const clone = { id: newId, type: orig.type, x: orig.x + 30, y: orig.y + 30, config: JSON.parse(JSON.stringify(orig.config)) };
+    if (orig.branches) clone.branches = [...orig.branches];
+    state.nodes[newId] = clone;
+    newIds.push(newId);
+  }
+  state.selectedSet = new Set(newIds);
+  state.selected = newIds[0];
   renderNodes();
   renderInspector();
   markDirty();
+  toast(`Duplicated ${newIds.length} node${newIds.length>1?'s':''}`, 'success', 1500);
 }
 
-function selectNode(id) { state.selected = id; renderNodes(); renderInspector(); }
+async function deleteSelected() {
+  if (state.selectedSet.size === 0) return;
+  const count = state.selectedSet.size;
+  const ok = await confirmDialog(`Delete ${count} node${count>1?'s':''}? This cannot be reversed except via undo (⌘Z).`, count > 1 ? 'Delete nodes?' : 'Delete node?');
+  if (!ok) return;
+  for (const id of state.selectedSet) {
+    delete state.nodes[id];
+    state.edges = state.edges.filter(e => e.from !== id && e.to !== id);
+  }
+  state.selectedSet.clear();
+  state.selected = null;
+  renderNodes();
+  renderInspector();
+  markDirty();
+  toast(`Deleted ${count} node${count>1?'s':''}`, 'info', 1500);
+}
+
+function selectNode(id, additive = false) {
+  if (id === null) {
+    state.selectedSet.clear();
+    state.selected = null;
+  } else if (additive) {
+    if (state.selectedSet.has(id)) state.selectedSet.delete(id);
+    else state.selectedSet.add(id);
+    state.selected = state.selectedSet.size === 1 ? [...state.selectedSet][0] : null;
+  } else {
+    state.selectedSet = new Set([id]);
+    state.selected = id;
+  }
+  renderNodes();
+  renderInspector();
+}
 
 function renderNodes() {
   const inner = document.getElementById('canvasInner');
@@ -436,7 +656,7 @@ function renderNodes() {
   for (const node of Object.values(state.nodes)) {
     const def = NODE_TYPES[node.type];
     const el = document.createElement('div');
-    el.className = 'node' + (state.selected === node.id ? ' selected' : '');
+    el.className = 'node' + (state.selectedSet.has(node.id) ? ' selected' : '');
     el.style.left = node.x + 'px';
     el.style.top = node.y + 'px';
     el.dataset.id = node.id;
@@ -466,24 +686,38 @@ function renderNodes() {
 
     el.innerHTML = `${portsHtml}<div class="node-header"><div class="node-dot" style="background:${def.color}"></div>${def.name}<span class="node-id">${node.id}</span></div><div class="node-body">${summary}</div>${branchListHtml}`;
 
-    let dragging = false, ox = 0, oy = 0;
+    let dragging = false, dragOffsets = {};
     el.addEventListener('mousedown', e => {
       if (e.target.classList.contains('port')) return;
       if (spaceDown) return;
+      e.stopPropagation();
+      // If shift held, toggle in selection
+      if (e.shiftKey) {
+        selectNode(node.id, true);
+        return;
+      }
+      // If clicking a non-selected node, select only it
+      if (!state.selectedSet.has(node.id)) selectNode(node.id);
       dragging = true;
       const pos = screenToCanvas(e.clientX, e.clientY);
-      ox = pos.x - node.x;
-      oy = pos.y - node.y;
-      selectNode(node.id);
-      e.stopPropagation();
+      // Store offset for every selected node
+      dragOffsets = {};
+      for (const id of state.selectedSet) {
+        const n = state.nodes[id];
+        dragOffsets[id] = { dx: pos.x - n.x, dy: pos.y - n.y };
+      }
     });
     document.addEventListener('mousemove', e => {
       if (!dragging) return;
       const pos = screenToCanvas(e.clientX, e.clientY);
-      node.x = pos.x - ox;
-      node.y = pos.y - oy;
-      el.style.left = node.x + 'px';
-      el.style.top = node.y + 'px';
+      for (const id of Object.keys(dragOffsets)) {
+        const n = state.nodes[id];
+        if (!n) continue;
+        n.x = pos.x - dragOffsets[id].dx;
+        n.y = pos.y - dragOffsets[id].dy;
+        const elN = document.querySelector(`.node[data-id="${id}"]`);
+        if (elN) { elN.style.left = n.x + 'px'; elN.style.top = n.y + 'px'; }
+      }
       renderConnections();
       markDirty();
     });
@@ -527,39 +761,39 @@ function renderConnections() {
     const fromNode = inner.querySelector(`.node[data-id="${edge.from}"]`);
     const toNode = inner.querySelector(`.node[data-id="${edge.to}"]`);
     if (!fromNode || !toNode) continue;
-
     const fromPort = fromNode.querySelector(`.port.out[data-port="${edge.fromPort}"]`);
     const toPort = toNode.querySelector(`.port.in[data-port="${edge.toPort}"]`);
     if (!fromPort || !toPort) continue;
-
     const fr = fromPort.getBoundingClientRect();
     const tr = toPort.getBoundingClientRect();
-
     const x1 = (fr.left + fr.width / 2 - innerRect.left) / state.view.zoom - svgOffsetX;
     const y1 = (fr.top + fr.height / 2 - innerRect.top) / state.view.zoom - svgOffsetY;
     const x2 = (tr.left + tr.width / 2 - innerRect.left) / state.view.zoom - svgOffsetX;
     const y2 = (tr.top + tr.height / 2 - innerRect.top) / state.view.zoom - svgOffsetY;
-
     const dx = Math.abs(x2 - x1) * 0.5;
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', `M ${x1} ${y1} C ${x1+dx} ${y1}, ${x2-dx} ${y2}, ${x2} ${y2}`);
     path.style.pointerEvents = 'stroke';
     path.style.cursor = 'pointer';
     path.addEventListener('click', () => {
-      if (confirm('Remove this connection?')) {
-        state.edges = state.edges.filter(e => !(e.from === edge.from && e.fromPort === edge.fromPort && e.to === edge.to && e.toPort === edge.toPort));
-        renderConnections();
-        markDirty();
-      }
+      state.edges = state.edges.filter(e => !(e.from === edge.from && e.fromPort === edge.fromPort && e.to === edge.to && e.toPort === edge.toPort));
+      renderConnections();
+      markDirty();
+      toast('Connection removed', 'info', 1200);
     });
     svg.appendChild(path);
   }
 }
 
+/* ─── inspector ─── */
 function renderInspector() {
   const el = document.getElementById('inspector');
+  if (state.selectedSet.size > 1) {
+    el.innerHTML = `<div class="section-title">Multi-selection</div><div class="multi-select-info">${state.selectedSet.size} nodes selected.<br><br>Drag any one to move them all together. Hit <kbd style="background:var(--panel-2);border:1px solid var(--border-hi);padding:1px 5px;border-radius:3px;font-family:inherit;font-size:9px">⌘D</kbd> to duplicate, <kbd style="background:var(--panel-2);border:1px solid var(--border-hi);padding:1px 5px;border-radius:3px;font-family:inherit;font-size:9px">Del</kbd> to delete.</div>`;
+    return;
+  }
   if (!state.selected || !state.nodes[state.selected]) {
-    el.innerHTML = `<div class="section-title">Inspector</div><p class="empty">Select a node to configure it. Or drag a new one from the left to start building.</p>`;
+    el.innerHTML = `<div class="section-title">Inspector</div><p class="empty">Select a node to configure it. Or hit <kbd style="background:var(--panel-2);border:1px solid var(--border-hi);padding:1px 5px;border-radius:3px;font-family:inherit;font-size:9px">⌘K</kbd> to add a node by name.</p>`;
     return;
   }
   const node = state.nodes[state.selected];
@@ -570,8 +804,8 @@ function renderInspector() {
     if (f.type === 'branches') {
       html += `<div class="field"><label>${f.label}</label><div class="branch-editor" id="branchEditor"></div><div class="hint">Each branch becomes an output port. The Switch routes based on whether the input contains the branch label (case insensitive).</div></div>`;
     } else if (f.type === 'textarea') {
-      const val = escapeHtml(node.config[f.key] || '');
-      html += `<div class="field"><label>${f.label}</label><textarea data-key="${f.key}" placeholder="${f.placeholder || ''}">${val}</textarea></div>`;
+      const val = node.config[f.key] || '';
+      html += `<div class="field"><label>${f.label}<span class="char-count">${val.length}</span></label><textarea data-key="${f.key}" placeholder="${f.placeholder || ''}">${escapeHtml(val)}</textarea></div>`;
     } else if (f.type === 'select') {
       html += `<div class="field"><label>${f.label}</label><select data-key="${f.key}">`;
       for (const opt of f.options) html += `<option value="${opt}" ${opt === node.config[f.key] ? 'selected' : ''}>${opt}</option>`;
@@ -586,12 +820,30 @@ function renderInspector() {
     html += `<div class="field"><div class="hint">Use <code>{{input}}</code> for previous node output, or <code>{{n1}}</code>, <code>{{n2}}</code>, etc. to reference any prior node by id.</div></div>`;
   }
 
+  // Connections section
+  const inEdges = state.edges.filter(e => e.to === node.id);
+  const outEdges = state.edges.filter(e => e.from === node.id);
+  if (inEdges.length > 0 || outEdges.length > 0) {
+    html += `<div class="section-title" style="margin-top:20px">Connections</div><div class="connections-list">`;
+    inEdges.forEach(e => { html += `<div class="conn"><code>${e.from}</code><span class="arrow">→</span><code>${node.id}</code></div>`; });
+    outEdges.forEach(e => {
+      const portLabel = node.type === 'switch' ? (node.branches[e.fromPort] || '?') : (node.type === 'condition' ? (e.fromPort === 0 ? 'then' : 'else') : '');
+      html += `<div class="conn"><code>${node.id}${portLabel ? ':'+portLabel : ''}</code><span class="arrow">→</span><code>${e.to}</code></div>`;
+    });
+    html += `</div>`;
+  }
+
   html += `<button class="delete-node">Delete Node</button>`;
   el.innerHTML = html;
 
   el.querySelectorAll('input[data-key], textarea[data-key], select[data-key]').forEach(input => {
     input.addEventListener('input', () => {
       node.config[input.dataset.key] = input.value;
+      // Update char count for textarea
+      if (input.tagName === 'TEXTAREA') {
+        const lbl = input.closest('.field').querySelector('.char-count');
+        if (lbl) lbl.textContent = input.value.length;
+      }
       renderNodes();
       markDirty();
     });
@@ -599,8 +851,18 @@ function renderInspector() {
 
   if (node.type === 'switch') renderBranchEditor(node);
 
-  el.querySelector('.delete-node').addEventListener('click', () => {
-    if (confirm('Delete this node?')) deleteNode(node.id);
+  el.querySelector('.delete-node').addEventListener('click', async () => {
+    const ok = await confirmDialog('Delete this node? You can undo with ⌘Z.', 'Delete node?');
+    if (ok) {
+      delete state.nodes[node.id];
+      state.edges = state.edges.filter(e => e.from !== node.id && e.to !== node.id);
+      state.selectedSet.delete(node.id);
+      state.selected = null;
+      renderNodes();
+      renderInspector();
+      markDirty();
+      toast('Node deleted', 'info', 1200);
+    }
   });
 }
 
@@ -642,6 +904,149 @@ function renderBranchEditor(node) {
   });
 }
 
+/* ─── minimap ─── */
+function renderMinimap() {
+  const cv = document.getElementById('minimapCanvas');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, W, H);
+
+  const nodes = Object.values(state.nodes);
+  if (nodes.length === 0) return;
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const n of nodes) {
+    minX = Math.min(minX, n.x);
+    minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + 200);
+    maxY = Math.max(maxY, n.y + 100);
+  }
+  // Also include current viewport in bounds so it's always visible
+  const cRect = canvas.getBoundingClientRect();
+  const vMinX = -state.view.panX / state.view.zoom;
+  const vMinY = -state.view.panY / state.view.zoom;
+  const vMaxX = vMinX + cRect.width / state.view.zoom;
+  const vMaxY = vMinY + cRect.height / state.view.zoom;
+  minX = Math.min(minX, vMinX);
+  minY = Math.min(minY, vMinY);
+  maxX = Math.max(maxX, vMaxX);
+  maxY = Math.max(maxY, vMaxY);
+
+  const pad = 30;
+  minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+  const w = maxX - minX, h = maxY - minY;
+  const scale = Math.min(W / w, H / h);
+  const offsetX = (W - w * scale) / 2;
+  const offsetY = (H - h * scale) / 2;
+
+  // Draw nodes
+  for (const n of nodes) {
+    const def = NODE_TYPES[n.type];
+    const colorMap = {
+      'var(--node-trigger)': '#ffb84d',
+      'var(--node-llm)': '#b6ff3c',
+      'var(--node-http)': '#4dd0ff',
+      'var(--node-condition)': '#c97eff',
+      'var(--node-switch)': '#ff9e4d',
+      'var(--node-output)': '#ff6ec7',
+    };
+    ctx.fillStyle = colorMap[def.color] || '#888';
+    const x = (n.x - minX) * scale + offsetX;
+    const y = (n.y - minY) * scale + offsetY;
+    ctx.fillRect(x, y, Math.max(2, 200 * scale), Math.max(2, 60 * scale));
+  }
+
+  // Draw viewport rectangle
+  const vx = (vMinX - minX) * scale + offsetX;
+  const vy = (vMinY - minY) * scale + offsetY;
+  const vw = (vMaxX - vMinX) * scale;
+  const vh = (vMaxY - vMinY) * scale;
+  ctx.strokeStyle = '#b6ff3c';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(vx, vy, vw, vh);
+
+  // Store transform for click handling
+  cv._minimapTransform = { minX, minY, scale, offsetX, offsetY };
+}
+
+document.getElementById('minimap').addEventListener('click', e => {
+  const cv = document.getElementById('minimapCanvas');
+  if (!cv._minimapTransform) return;
+  const t = cv._minimapTransform;
+  const r = cv.getBoundingClientRect();
+  const localX = e.clientX - r.left;
+  const localY = e.clientY - r.top;
+  // Convert minimap coord back to canvas coord
+  const canvasX = (localX - t.offsetX) / t.scale + t.minX;
+  const canvasY = (localY - t.offsetY) / t.scale + t.minY;
+  // Center the viewport on this point
+  const cRect = canvas.getBoundingClientRect();
+  state.view.panX = -canvasX * state.view.zoom + cRect.width / 2;
+  state.view.panY = -canvasY * state.view.zoom + cRect.height / 2;
+  applyViewTransform();
+});
+
+/* ─── command palette ─── */
+let cmdSelectedIdx = 0;
+let cmdResults = [];
+function openCommandPalette() {
+  const bg = document.getElementById('cmdPaletteBg');
+  bg.classList.add('open');
+  const search = document.getElementById('cmdSearch');
+  search.value = '';
+  search.focus();
+  cmdSelectedIdx = 0;
+  renderCmdResults('');
+}
+function closeCommandPalette() {
+  document.getElementById('cmdPaletteBg').classList.remove('open');
+}
+function renderCmdResults(query) {
+  const list = document.getElementById('cmdResults');
+  list.innerHTML = '';
+  const lq = query.toLowerCase().trim();
+  cmdResults = Object.entries(NODE_TYPES).filter(([t, def]) =>
+    !lq || t.includes(lq) || def.name.toLowerCase().includes(lq) || def.desc.toLowerCase().includes(lq)
+  );
+  cmdResults.forEach(([type, def], i) => {
+    const item = document.createElement('div');
+    item.className = 'cmd-result' + (i === cmdSelectedIdx ? ' selected' : '');
+    item.innerHTML = `<div class="palette-icon" style="background:${def.color}">${def.icon}</div><div class="cmd-result-text"><div class="cmd-result-name">${def.name}</div><div class="cmd-result-desc">${def.desc}</div></div>`;
+    item.addEventListener('click', () => {
+      addNodeAtCenter(type);
+      closeCommandPalette();
+    });
+    list.appendChild(item);
+  });
+}
+document.getElementById('cmdSearch').addEventListener('input', e => {
+  cmdSelectedIdx = 0;
+  renderCmdResults(e.target.value);
+});
+document.getElementById('cmdSearch').addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    cmdSelectedIdx = Math.min(cmdResults.length - 1, cmdSelectedIdx + 1);
+    renderCmdResults(document.getElementById('cmdSearch').value);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    cmdSelectedIdx = Math.max(0, cmdSelectedIdx - 1);
+    renderCmdResults(document.getElementById('cmdSearch').value);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (cmdResults[cmdSelectedIdx]) {
+      addNodeAtCenter(cmdResults[cmdSelectedIdx][0]);
+      closeCommandPalette();
+    }
+  } else if (e.key === 'Escape') {
+    closeCommandPalette();
+  }
+});
+
+/* ─── execution engine ─── */
 async function runAgent() {
   const settings = getSettings();
   const runPanel = document.getElementById('runPanel');
@@ -657,6 +1062,7 @@ async function runAgent() {
     log('error', 'No Trigger node found. Add one to start.', '');
     runStatus.className = 'status error';
     runStatus.textContent = 'error';
+    toast('No trigger node found', 'error');
     return;
   }
 
@@ -691,17 +1097,13 @@ async function runAgent() {
 
     try {
       lastUsedPort = 0;
-
       if (node.type === 'llm') {
         const sys = renderTemplate(node.config.system || '', value, ctx);
         const user = renderTemplate(node.config.prompt || '{{input}}', value, ctx);
-
         if (settings.provider === 'ollama') {
           const ollamaIsHttp = settings.ollamaUrl.startsWith('http://');
           const pageIsHttps = location.protocol === 'https:';
-          if (pageIsHttps && ollamaIsHttp) {
-            throw new Error('Mixed content blocked: HTTPS page cannot reach HTTP localhost. Run the builder locally with `python3 -m http.server 8000` and open it via http://localhost:8000/builder.html');
-          }
+          if (pageIsHttps && ollamaIsHttp) throw new Error('Mixed content blocked: HTTPS page cannot reach HTTP localhost. Run the builder locally with `python3 -m http.server 8000`.');
           log('success', `Calling Ollama (${settings.ollamaModel}) [${node.id}]`, `system: ${sys.slice(0,80)}\nuser: ${user.slice(0,80)}`);
           const messages = [];
           if (sys) messages.push({ role: 'system', content: sys });
@@ -725,12 +1127,7 @@ async function runAgent() {
           log('success', `Calling Claude (${settings.model}) [${node.id}]`, `system: ${sys.slice(0,80)}\nuser: ${user.slice(0,80)}`);
           const res = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
-            headers: {
-              'content-type': 'application/json',
-              'x-api-key': settings.apiKey,
-              'anthropic-version': '2023-06-01',
-              'anthropic-dangerous-direct-browser-access': 'true',
-            },
+            headers: { 'content-type': 'application/json', 'x-api-key': settings.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
             body: JSON.stringify({ model: settings.model, max_tokens: 1024, system: sys || undefined, messages: [{ role: 'user', content: user }] }),
           });
           const data = await res.json();
@@ -762,22 +1159,19 @@ async function runAgent() {
         for (let i = 0; i < branches.length; i++) {
           if (lower.includes(branches[i].toLowerCase())) { matchedIdx = i; break; }
         }
-        if (matchedIdx === -1) {
-          log('error', `Switch [${node.id}]: no branch matched`, `value: ${value}\nbranches: ${branches.join(', ')}`);
-          throw new Error(`Switch did not match any branch: ${branches.join(', ')}`);
-        }
+        if (matchedIdx === -1) throw new Error(`Switch did not match any branch: ${branches.join(', ')}`);
         lastUsedPort = matchedIdx;
         log('success', `Switch [${node.id}]: matched "${branches[matchedIdx]}" (port ${matchedIdx})`, value);
       } else if (node.type === 'output') {
         log('success', `Final output [${node.id}]`, value);
       }
-
       ctx[node.id] = value;
     } catch (err) {
       if (nodeEl) { nodeEl.classList.remove('executing'); nodeEl.classList.add('error'); }
       log('error', `Error in ${node.type} [${node.id}]`, err.message);
       runStatus.className = 'status error';
       runStatus.textContent = 'error';
+      toast(`Error in ${node.id}: ${err.message.slice(0, 60)}`, 'error', 4000);
       return;
     }
     current = node;
@@ -786,6 +1180,7 @@ async function runAgent() {
   document.querySelectorAll('.node').forEach(n => n.classList.remove('executing'));
   runStatus.className = 'status idle';
   runStatus.textContent = 'done';
+  toast('Agent executed successfully', 'success', 1500);
 }
 
 function renderTemplate(tpl, immediateInput, ctx) {
@@ -803,8 +1198,9 @@ function log(type, label, content) {
   body.scrollTop = body.scrollHeight;
 }
 
+/* ─── import/export ─── */
 function exportAgent() {
-  const data = { name: state.agentName, version: '1.0.0', nodes: state.nodes, edges: state.edges, view: state.view };
+  const data = { name: state.agentName, version: '1.1.0', nodes: state.nodes, edges: state.edges, view: state.view };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -812,6 +1208,7 @@ function exportAgent() {
   a.download = `${state.agentName}.agentix.json`;
   a.click();
   URL.revokeObjectURL(url);
+  toast('Agent exported', 'success', 1500);
 }
 
 function importAgent(file) {
@@ -824,16 +1221,20 @@ function importAgent(file) {
       state.view = data.view || { panX: 0, panY: 0, zoom: 1 };
       state.agentName = data.name || 'imported-agent';
       state.nextId = Math.max(0, ...Object.keys(state.nodes).map(k => parseInt(k.slice(1)) || 0)) + 1;
+      state.selectedSet = new Set();
+      state.selected = null;
       document.getElementById('agentName').value = state.agentName;
       applyViewTransform();
       renderNodes();
       renderInspector();
       markDirty();
-    } catch (err) { alert('Invalid agent file: ' + err.message); }
+      toast(`Imported "${state.agentName}"`, 'success', 1500);
+    } catch (err) { toast('Invalid agent file: ' + err.message, 'error', 3000); }
   };
   reader.readAsText(file);
 }
 
+/* ─── pan/zoom + selection rectangle ─── */
 function setupPanZoom() {
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
@@ -861,11 +1262,20 @@ function setupPanZoom() {
   });
 
   canvas.addEventListener('mousedown', e => {
+    if (e.target !== canvas && e.target.tagName !== 'svg' && e.target.tagName !== 'path') return;
     if (spaceDown || e.button === 1) {
       e.preventDefault();
       isPanning = true;
       panStart = { x: e.clientX - state.view.panX, y: e.clientY - state.view.panY };
       canvas.classList.add('panning');
+    } else if (e.button === 0) {
+      // Start selection rectangle
+      isSelecting = true;
+      selectStart = { x: e.clientX, y: e.clientY };
+      selectRectEl = document.createElement('div');
+      selectRectEl.className = 'selection-rect';
+      canvas.appendChild(selectRectEl);
+      if (!e.shiftKey) selectNode(null);
     }
   });
   document.addEventListener('mousemove', e => {
@@ -873,10 +1283,42 @@ function setupPanZoom() {
       state.view.panX = e.clientX - panStart.x;
       state.view.panY = e.clientY - panStart.y;
       applyViewTransform();
+    } else if (isSelecting && selectRectEl) {
+      const rect = canvas.getBoundingClientRect();
+      const x1 = Math.min(selectStart.x, e.clientX) - rect.left;
+      const y1 = Math.min(selectStart.y, e.clientY) - rect.top;
+      const x2 = Math.max(selectStart.x, e.clientX) - rect.left;
+      const y2 = Math.max(selectStart.y, e.clientY) - rect.top;
+      selectRectEl.style.left = x1 + 'px';
+      selectRectEl.style.top = y1 + 'px';
+      selectRectEl.style.width = (x2 - x1) + 'px';
+      selectRectEl.style.height = (y2 - y1) + 'px';
     }
   });
-  document.addEventListener('mouseup', () => {
+  document.addEventListener('mouseup', e => {
     if (isPanning) { isPanning = false; canvas.classList.remove('panning'); markDirty(); }
+    if (isSelecting) {
+      // Compute which nodes are inside the rectangle (in canvas coords)
+      const p1 = screenToCanvas(Math.min(selectStart.x, e.clientX), Math.min(selectStart.y, e.clientY));
+      const p2 = screenToCanvas(Math.max(selectStart.x, e.clientX), Math.max(selectStart.y, e.clientY));
+      const dx = Math.abs(e.clientX - selectStart.x);
+      const dy = Math.abs(e.clientY - selectStart.y);
+      // Only treat as drag-select if movement was significant (>5px)
+      if (dx > 5 || dy > 5) {
+        for (const n of Object.values(state.nodes)) {
+          const ncx = n.x + 90;
+          const ncy = n.y + 30;
+          if (ncx >= p1.x && ncx <= p2.x && ncy >= p1.y && ncy <= p2.y) {
+            state.selectedSet.add(n.id);
+          }
+        }
+        state.selected = state.selectedSet.size === 1 ? [...state.selectedSet][0] : null;
+        renderNodes();
+        renderInspector();
+      }
+      if (selectRectEl) { selectRectEl.remove(); selectRectEl = null; }
+      isSelecting = false;
+    }
   });
 
   document.getElementById('zoomIn').addEventListener('click', () => zoomBy(1.2));
@@ -904,6 +1346,52 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+/* ─── global keyboard shortcuts ─── */
+document.addEventListener('keydown', e => {
+  // Ignore when typing in inputs
+  const inField = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
+  const cmdOpen = document.getElementById('cmdPaletteBg').classList.contains('open');
+  const meta = e.metaKey || e.ctrlKey;
+
+  // Cmd+K — open command palette (works even from inputs)
+  if (meta && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    if (cmdOpen) closeCommandPalette();
+    else openCommandPalette();
+    return;
+  }
+  if (cmdOpen) return; // other shortcuts disabled while palette open
+  if (inField) return;
+
+  // Cmd+Z — undo, Cmd+Shift+Z — redo
+  if (meta && e.key.toLowerCase() === 'z') {
+    e.preventDefault();
+    if (e.shiftKey) redo();
+    else undo();
+    return;
+  }
+  // Cmd+D — duplicate
+  if (meta && e.key.toLowerCase() === 'd') {
+    e.preventDefault();
+    duplicateSelected();
+    return;
+  }
+  // Delete / Backspace — delete selected
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (state.selectedSet.size > 0) {
+      e.preventDefault();
+      deleteSelected();
+    }
+    return;
+  }
+  // Escape — clear selection
+  if (e.key === 'Escape') {
+    selectNode(null);
+    return;
+  }
+});
+
+/* ─── wire up rest ─── */
 document.getElementById('agentName').addEventListener('input', e => { state.agentName = e.target.value; markDirty(); });
 document.getElementById('runBtn').addEventListener('click', runAgent);
 document.getElementById('saveBtn').addEventListener('click', exportAgent);
@@ -912,16 +1400,26 @@ document.getElementById('fileInput').addEventListener('change', e => {
   if (e.target.files[0]) importAgent(e.target.files[0]);
   e.target.value = '';
 });
-document.getElementById('newBtn').addEventListener('click', () => {
-  if (confirm('Start over? Current work will be cleared.')) {
-    state = { nodes: {}, edges: [], selected: null, nextId: 1, agentName: 'untitled-agent', view: { panX: 0, panY: 0, zoom: 1 } };
+document.getElementById('newBtn').addEventListener('click', async () => {
+  const ok = await confirmDialog('Start over? Current work will be cleared. You can undo this with ⌘Z.', 'New agent?');
+  if (ok) {
+    state.nodes = {};
+    state.edges = [];
+    state.selectedSet = new Set();
+    state.selected = null;
+    state.nextId = 1;
+    state.agentName = 'untitled-agent';
+    state.view = { panX: 0, panY: 0, zoom: 1 };
     document.getElementById('agentName').value = state.agentName;
     applyViewTransform();
     renderNodes();
     renderInspector();
     markDirty();
+    toast('New agent', 'info', 1000);
   }
 });
+document.getElementById('undoBtn').addEventListener('click', undo);
+document.getElementById('redoBtn').addEventListener('click', redo);
 
 document.getElementById('settingsBtn').addEventListener('click', () => {
   const s = getSettings();
@@ -950,20 +1448,29 @@ document.getElementById('settingsSave').addEventListener('click', () => {
     ollamaModel: document.getElementById('ollamaModelSelect').value,
   });
   document.getElementById('settingsModal').classList.remove('open');
+  toast('Settings saved', 'success', 1200);
 });
 document.getElementById('runHeader').addEventListener('click', () => document.getElementById('runPanel').classList.toggle('open'));
-canvas.addEventListener('mousedown', e => {
-  if (spaceDown) return;
-  if (e.target === canvas || e.target.tagName === 'svg' || e.target.tagName === 'path') selectNode(null);
+
+// Click on cmd palette background closes it
+document.getElementById('cmdPaletteBg').addEventListener('click', e => {
+  if (e.target === document.getElementById('cmdPaletteBg')) closeCommandPalette();
 });
 
+// Init
 renderPalette();
 setupPanZoom();
 const restored = loadAutosave();
-if (restored) document.getElementById('agentName').value = state.agentName;
+if (restored) {
+  document.getElementById('agentName').value = state.agentName;
+  toast('Restored previous session', 'info', 1500);
+}
 applyViewTransform();
 renderNodes();
 renderInspector();
+renderMinimap();
+// Push initial snapshot
+pushSnapshot();
 </script>
 
 </body>
