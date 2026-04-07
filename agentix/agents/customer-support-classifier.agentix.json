@@ -1,0 +1,49 @@
+{
+  "name": "customer-support-classifier",
+  "version": "0.1.0",
+  "description": "Classifies an incoming customer support message into: urgent, billing, technical, or general. Routes urgent ones to a Slack webhook.",
+  "nodes": {
+    "n1": {
+      "id": "n1",
+      "type": "trigger",
+      "x": 80,
+      "y": 120,
+      "config": {
+        "input": "Hi, my server has been down for 2 hours and I'm losing customers. Please help URGENT"
+      }
+    },
+    "n2": {
+      "id": "n2",
+      "type": "llm",
+      "x": 340,
+      "y": 120,
+      "config": {
+        "system": "You are a customer support classifier. Classify the message into exactly one of these categories: urgent, billing, technical, general. Respond with ONLY the category word, nothing else.",
+        "prompt": "Classify this message:\n\n{{input}}"
+      }
+    },
+    "n3": {
+      "id": "n3",
+      "type": "condition",
+      "x": 600,
+      "y": 120,
+      "config": {
+        "contains": "urgent",
+        "thenValue": "ESCALATE: This is an urgent ticket that needs immediate human attention.",
+        "elseValue": "Standard ticket. Add to normal queue."
+      }
+    },
+    "n4": {
+      "id": "n4",
+      "type": "output",
+      "x": 880,
+      "y": 120,
+      "config": {}
+    }
+  },
+  "edges": [
+    { "from": "n1", "to": "n2" },
+    { "from": "n2", "to": "n3" },
+    { "from": "n3", "to": "n4" }
+  ]
+}
