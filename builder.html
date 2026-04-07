@@ -451,6 +451,11 @@
     </div>
 
     <div id="ollamaSettings">
+      <div id="httpsWarning" style="display:none; background: #2a1a05; border: 1px solid #ffb84d; border-radius: 6px; padding: 12px; margin-bottom: 14px; font-size: 11px; line-height: 1.6; color: #ffd699;">
+        <strong style="color: #ffb84d;">⚠ Heads up:</strong> this page is loaded over HTTPS, but Ollama runs on HTTP at localhost. Browsers block this combination (mixed content). To use Ollama, run the builder locally:
+        <code style="display:block; margin-top:6px; padding:6px 8px; background:#0a0a0a; border-radius:3px; color:#b6ff3c;">python3 -m http.server 8000</code>
+        Then open <code style="color:#b6ff3c;">http://localhost:8000/builder.html</code>. Or use the Anthropic API provider above.
+      </div>
       <div class="field">
         <label>Ollama URL</label>
         <input type="text" id="ollamaUrlInput" placeholder="http://localhost:11434" />
@@ -579,8 +584,12 @@ function saveSettings(s) {
   localStorage.setItem('agentix_ollama_model', s.ollamaModel);
 }
 function getSettings() {
+  const stored = localStorage.getItem('agentix_provider');
+  // Smart default: if no preference set, pick anthropic on HTTPS (mixed-content blocks ollama)
+  // and ollama on local file/http (free, works out of the box)
+  const defaultProvider = location.protocol === 'https:' ? 'anthropic' : 'ollama';
   return {
-    provider: localStorage.getItem('agentix_provider') || 'ollama',
+    provider: stored || defaultProvider,
     apiKey: localStorage.getItem('agentix_apikey') || '',
     model: localStorage.getItem('agentix_model') || 'claude-haiku-4-5-20251001',
     ollamaUrl: localStorage.getItem('agentix_ollama_url') || 'http://localhost:11434',
@@ -874,6 +883,17 @@ async function runAgent() {
         const user = (node.config.prompt || value).replaceAll('{{input}}', value);
 
         if (settings.provider === 'ollama') {
+          // Mixed content check: HTTPS pages cannot fetch http://localhost
+          const ollamaIsHttp = settings.ollamaUrl.startsWith('http://');
+          const pageIsHttps = location.protocol === 'https:';
+          if (pageIsHttps && ollamaIsHttp) {
+            throw new Error(
+              'Mixed content blocked: this page is loaded over HTTPS but Ollama runs on HTTP (localhost). ' +
+              'Browsers block this for security. To use Ollama, run the builder locally: ' +
+              'download builder.html and serve it with `python3 -m http.server 8000`, then open http://localhost:8000/builder.html. ' +
+              'Or switch to the Anthropic API provider in ⚙ Provider settings.'
+            );
+          }
           log('success', `Calling Ollama (${settings.ollamaModel})`, `system: ${sys.slice(0,80)}\nuser: ${user.slice(0,80)}`);
           const messages = [];
           if (sys) messages.push({ role: 'system', content: sys });
@@ -1039,6 +1059,9 @@ document.getElementById('providerSelect').addEventListener('change', e => {
 function toggleProviderPanels(provider) {
   document.getElementById('ollamaSettings').style.display = provider === 'ollama' ? 'block' : 'none';
   document.getElementById('anthropicSettings').style.display = provider === 'anthropic' ? 'block' : 'none';
+  // Show mixed-content warning when on HTTPS and Ollama is selected
+  const onHttps = location.protocol === 'https:';
+  document.getElementById('httpsWarning').style.display = (provider === 'ollama' && onHttps) ? 'block' : 'none';
 }
 document.getElementById('settingsCancel').addEventListener('click', () => {
   document.getElementById('settingsModal').classList.remove('open');
