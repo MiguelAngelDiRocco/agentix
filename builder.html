@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Agentix — Visual Agent Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --panel: #111111;
+    --panel-2: #161616;
+    --border: #222;
+    --border-hi: #333;
+    --text: #e8e8e8;
+    --text-dim: #888;
+    --accent: #b6ff3c;
+    --accent-dim: #5d8a1c;
+    --danger: #ff4d4d;
+    --node-trigger: #ffb84d;
+    --node-llm: #b6ff3c;
+    --node-http: #4dd0ff;
+    --node-condition: #c97eff;
+    --node-switch: #ff9e4d;
+    --node-output: #ff6ec7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+  .app { display: grid; grid-template-columns: 240px 1fr 320px; grid-template-rows: 48px 1fr; grid-template-areas: "header header header" "sidebar canvas inspector"; height: 100vh; }
+  header { grid-area: header; background: var(--panel); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; gap: 12px; }
+  .logo { font-family: 'Instrument Serif', serif; font-size: 22px; font-style: italic; color: var(--accent); letter-spacing: -0.5px; }
+  .logo::after { content: ' /'; color: var(--text-dim); font-style: normal; font-family: 'JetBrains Mono', monospace; font-size: 14px; margin-left: 6px; }
+  .version-badge { font-size: 9px; color: var(--accent); background: rgba(182,255,60,0.1); border: 1px solid var(--accent-dim); padding: 2px 6px; border-radius: 100px; text-transform: uppercase; letter-spacing: 1px; }
+  .agent-name { background: transparent; border: 1px dashed transparent; color: var(--text); font-family: inherit; font-size: 13px; padding: 4px 8px; border-radius: 4px; min-width: 200px; }
+  .agent-name:hover { border-color: var(--border-hi); }
+  .agent-name:focus { outline: none; border-color: var(--accent); border-style: solid; }
+  .save-indicator { font-size: 10px; color: var(--text-dim); transition: color 0.3s; }
+  .save-indicator.saved { color: var(--accent); }
+  .header-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+  button { background: var(--panel-2); color: var(--text); border: 1px solid var(--border-hi); font-family: inherit; font-size: 12px; padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
+  button.primary:hover { background: #c4ff5c; color: #000; }
+
+  .sidebar { grid-area: sidebar; background: var(--panel); border-right: 1px solid var(--border); padding: 16px; overflow-y: auto; }
+  .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); margin-bottom: 12px; margin-top: 8px; }
+  .node-palette { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+  .palette-item { background: var(--panel-2); border: 1px solid var(--border-hi); padding: 10px 12px; border-radius: 6px; cursor: grab; display: flex; align-items: center; gap: 10px; transition: all 0.15s; user-select: none; }
+  .palette-item:hover { border-color: var(--accent); transform: translateX(2px); }
+  .palette-item:active { cursor: grabbing; }
+  .palette-icon { width: 24px; height: 24px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; color: #000; flex-shrink: 0; }
+  .palette-name { font-size: 12px; font-weight: 500; }
+  .palette-desc { font-size: 10px; color: var(--text-dim); }
+
+  .canvas-wrap { grid-area: canvas; background: radial-gradient(circle at 1px 1px, #1a1a1a 1px, transparent 0); background-size: 20px 20px; background-color: var(--bg); position: relative; overflow: hidden; }
+  .canvas { position: absolute; inset: 0; cursor: default; }
+  .canvas.panning { cursor: grabbing; }
+  .canvas.dragging-over { background-color: #0f1408; }
+  .canvas-inner { position: absolute; top: 0; left: 0; width: 0; height: 0; transform-origin: 0 0; will-change: transform; }
+
+  svg.connections { position: absolute; top: -10000px; left: -10000px; width: 20000px; height: 20000px; pointer-events: none; overflow: visible; }
+  svg.connections path { fill: none; stroke: var(--border-hi); stroke-width: 2; transition: stroke 0.15s; }
+
+  .node { position: absolute; background: var(--panel); border: 1px solid var(--border-hi); border-radius: 8px; min-width: 180px; box-shadow: 0 4px 16px rgba(0,0,0,0.4); cursor: move; user-select: none; transition: border-color 0.15s, box-shadow 0.15s; }
+  .node:hover { border-color: var(--text-dim); }
+  .node.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(182, 255, 60, 0.2), 0 4px 16px rgba(0,0,0,0.4); }
+  .node.executing { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(182, 255, 60, 0.3); }
+  .node.error { border-color: var(--danger); }
+  .node-header { padding: 10px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  .node-id { margin-left: auto; font-size: 9px; color: var(--text-dim); background: var(--panel-2); padding: 2px 5px; border-radius: 3px; text-transform: lowercase; }
+  .node-dot { width: 8px; height: 8px; border-radius: 2px; }
+  .node-body { padding: 10px 12px; font-size: 11px; color: var(--text-dim); min-height: 28px; }
+  .node-body code { color: var(--text); background: var(--panel-2); padding: 2px 4px; border-radius: 3px; font-size: 10px; word-break: break-all; }
+  .branch-list { padding: 6px 12px 10px; display: flex; flex-direction: column; gap: 6px; border-top: 1px dashed var(--border); }
+  .branch-row { display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: var(--text-dim); position: relative; padding-right: 8px; }
+  .branch-row .branch-label { color: var(--text); font-weight: 500; }
+
+  .port { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--panel-2); border: 2px solid var(--border-hi); cursor: crosshair; transition: all 0.15s; z-index: 2; }
+  .port:hover { background: var(--accent); border-color: var(--accent); transform: scale(1.3); }
+  .port.in { left: -7px; top: 50%; transform: translateY(-50%); }
+  .port.in:hover { transform: translateY(-50%) scale(1.3); }
+  .port.out { right: -7px; }
+  .port.out.single { top: 50%; transform: translateY(-50%); }
+  .port.out.single:hover { transform: translateY(-50%) scale(1.3); }
+  .port.branch-port { position: relative; right: -14px; top: auto; transform: none; display: inline-block; flex-shrink: 0; }
+
+  .zoom-hud { position: absolute; bottom: 50px; right: 16px; background: var(--panel); border: 1px solid var(--border-hi); border-radius: 6px; display: flex; align-items: center; gap: 2px; padding: 4px; font-size: 11px; z-index: 5; }
+  .zoom-hud button { background: transparent; border: none; color: var(--text); padding: 4px 8px; border-radius: 3px; font-family: inherit; font-size: 12px; }
+  .zoom-hud button:hover { background: var(--panel-2); color: var(--accent); }
+  .zoom-hud .zoom-value { color: var(--text-dim); font-size: 10px; min-width: 36px; text-align: center; padding: 0 4px; }
+
+  .inspector { grid-area: inspector; background: var(--panel); border-left: 1px solid var(--border); padding: 16px; overflow-y: auto; }
+  .inspector .empty { color: var(--text-dim); font-size: 11px; line-height: 1.6; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 6px; }
+  .field input, .field textarea, .field select { width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--border-hi); border-radius: 4px; padding: 8px 10px; font-family: inherit; font-size: 12px; }
+  .field input:focus, .field textarea:focus, .field select:focus { outline: none; border-color: var(--accent); }
+  .field textarea { resize: vertical; min-height: 80px; font-size: 11px; line-height: 1.5; }
+  .field .hint { font-size: 10px; color: var(--text-dim); margin-top: 4px; line-height: 1.5; }
+  .field .hint code { background: var(--panel-2); padding: 1px 4px; border-radius: 3px; color: var(--accent); }
+  .branch-editor { background: var(--panel-2); border: 1px solid var(--border-hi); border-radius: 4px; padding: 8px; }
+  .branch-editor .branch-item { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .branch-editor input { padding: 6px 8px; font-size: 11px; }
+  .branch-editor .branch-num { font-size: 9px; color: var(--text-dim); width: 16px; text-align: center; }
+  .branch-editor button.remove-branch { padding: 4px 8px; font-size: 10px; background: transparent; border-color: var(--border-hi); }
+  .branch-editor button.remove-branch:hover { color: var(--danger); border-color: var(--danger); }
+  .branch-editor button.add-branch { width: 100%; margin-top: 4px; font-size: 10px; padding: 6px; }
+  .delete-node { width: 100%; margin-top: 12px; background: transparent; border-color: var(--border-hi); }
+  .delete-node:hover { background: rgba(255,77,77,0.1); border-color: var(--danger); color: var(--danger); }
+
+  .run-panel { position: absolute; bottom: 0; left: 0; right: 0; background: var(--panel); border-top: 1px solid var(--border); max-height: 50%; display: flex; flex-direction: column; transform: translateY(calc(100% - 36px)); transition: transform 0.25s ease; z-index: 6; }
+  .run-panel.open { transform: translateY(0); }
+  .run-header { padding: 8px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; border-bottom: 1px solid var(--border); }
+  .run-header .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); }
+  .run-header .status { margin-left: auto; font-size: 11px; }
+  .status.idle { color: var(--text-dim); }
+  .status.running { color: var(--accent); }
+  .status.error { color: var(--danger); }
+  .run-body { padding: 12px 16px; overflow-y: auto; flex: 1; font-size: 11px; line-height: 1.6; }
+  .log-entry { margin-bottom: 8px; padding: 6px 10px; background: var(--panel-2); border-radius: 4px; border-left: 2px solid var(--border-hi); }
+  .log-entry.success { border-left-color: var(--accent); }
+  .log-entry.error { border-left-color: var(--danger); }
+  .log-entry .node-tag { color: var(--accent); font-weight: 700; }
+  .log-entry pre { margin-top: 4px; color: var(--text-dim); white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow: auto; }
+
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 100; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--border-hi); border-radius: 8px; padding: 24px; width: 480px; max-width: 90vw; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 24px; margin-bottom: 4px; color: var(--accent); }
+  .modal p { font-size: 11px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.6; }
+
+  .empty-canvas { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; color: var(--text-dim); text-align: center; z-index: 1; }
+  .empty-canvas h3 { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 32px; margin-bottom: 8px; color: var(--text); }
+  .empty-canvas p { font-size: 12px; max-width: 320px; line-height: 1.6; }
+  .empty-canvas .shortcut { margin-top: 16px; font-size: 10px; color: var(--text-dim); }
+  .empty-canvas .shortcut kbd { background: var(--panel-2); border: 1px solid var(--border-hi); padding: 2px 6px; border-radius: 3px; font-family: inherit; font-size: 9px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="logo">Agentix</div>
+    <span class="version-badge">v1.0</span>
+    <input type="text" class="agent-name" id="agentName" value="untitled-agent" />
+    <span class="save-indicator" id="saveIndicator">●</span>
+    <div class="header-actions">
+      <button id="settingsBtn">⚙ Provider</button>
+      <button id="newBtn">＋ New</button>
+      <button id="saveBtn">↓ Export</button>
+      <button id="loadBtn">↑ Import</button>
+      <button class="primary" id="runBtn">▶ Run</button>
+    </div>
+  </header>
+
+  <aside class="sidebar">
+    <div class="section-title">Nodes</div>
+    <div class="node-palette" id="palette"></div>
+    <div class="section-title">Tips</div>
+    <p style="font-size: 10px; color: var(--text-dim); line-height: 1.7;">
+      • Drag nodes to canvas<br>
+      • Click ports to connect<br>
+      • <code style="background:var(--panel-2);padding:1px 4px;border-radius:3px;color:var(--accent)">{{input}}</code> = previous output<br>
+      • <code style="background:var(--panel-2);padding:1px 4px;border-radius:3px;color:var(--accent)">{{n1}}</code> = node by id<br>
+      • Hold space + drag to pan<br>
+      • Mouse wheel to zoom<br>
+      • Auto-saved to localStorage
+    </p>
+    <p style="font-size: 10px; color: var(--text-dim); margin-top: 16px;">
+      v1.0.0 — open source<br>
+      <a href="https://github.com/MiguelAngelDiRocco/agentix" style="color: var(--accent);">github.com/agentix</a>
+    </p>
+  </aside>
+
+  <main class="canvas-wrap">
+    <div class="canvas" id="canvas">
+      <div class="canvas-inner" id="canvasInner">
+        <svg class="connections" id="connections"></svg>
+      </div>
+      <div class="empty-canvas" id="emptyState">
+        <h3>Build your agent</h3>
+        <p>Drag a node from the left to start. Connect them with the ports on each side. Hit Run when you're ready.</p>
+        <div class="shortcut"><kbd>space</kbd> + drag to pan · <kbd>scroll</kbd> to zoom</div>
+      </div>
+    </div>
+
+    <div class="zoom-hud">
+      <button id="zoomOut" title="Zoom out">−</button>
+      <span class="zoom-value" id="zoomValue">100%</span>
+      <button id="zoomIn" title="Zoom in">+</button>
+      <button id="zoomReset" title="Reset view">⊙</button>
+    </div>
+
+    <div class="run-panel" id="runPanel">
+      <div class="run-header" id="runHeader">
+        <span class="label">▲ Execution Log</span>
+        <span class="status idle" id="runStatus">idle</span>
+      </div>
+      <div class="run-body" id="runBody">
+        <div class="empty" style="color: var(--text-dim); font-size: 11px;">No runs yet. Click ▶ Run to execute the agent.</div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="inspector" id="inspector">
+    <div class="section-title">Inspector</div>
+    <p class="empty">Select a node to configure it. Or drag a new one from the left to start building.</p>
+  </aside>
+</div>
+
+<div class="modal-bg" id="settingsModal">
+  <div class="modal">
+    <h2>Provider Settings</h2>
+    <p>Agentix runs entirely in your browser. Choose your LLM provider — Ollama runs local on your machine for free, or use the Anthropic API if you want Claude quality.</p>
+    <div class="field">
+      <label>Provider</label>
+      <select id="providerSelect">
+        <option value="ollama">Ollama (local · free)</option>
+        <option value="anthropic">Anthropic API (paid per token)</option>
+      </select>
+    </div>
+    <div id="ollamaSettings">
+      <div id="httpsWarning" style="display:none; background: #2a1a05; border: 1px solid #ffb84d; border-radius: 6px; padding: 12px; margin-bottom: 14px; font-size: 11px; line-height: 1.6; color: #ffd699;">
+        <strong style="color: #ffb84d;">⚠ Heads up:</strong> this page is loaded over HTTPS, but Ollama runs on HTTP at localhost. Browsers block this combination (mixed content). To use Ollama, run the builder locally:
+        <code style="display:block; margin-top:6px; padding:6px 8px; background:#0a0a0a; border-radius:3px; color:#b6ff3c;">python3 -m http.server 8000</code>
+        Then open <code style="color:#b6ff3c;">http://localhost:8000/builder.html</code>. Or use the Anthropic API provider above.
+      </div>
+      <div class="field">
+        <label>Ollama URL</label>
+        <input type="text" id="ollamaUrlInput" placeholder="http://localhost:11434" />
+        <div class="hint">Default is http://localhost:11434. Make sure Ollama is running and CORS is enabled.</div>
+      </div>
+      <div class="field">
+        <label>Model</label>
+        <select id="ollamaModelSelect">
+          <option value="llama3.2:3b">Llama 3.2 3B (recommended for 16GB RAM)</option>
+          <option value="phi3.5">Phi 3.5 mini (3.8B · fast)</option>
+          <option value="qwen2.5:7b">Qwen 2.5 7B (smarter, heavier)</option>
+          <option value="llama3.1:8b">Llama 3.1 8B (smarter, heavier)</option>
+        </select>
+        <div class="hint">Pull the model first: <code style="background:var(--panel-2);padding:2px 4px;border-radius:3px">ollama pull llama3.2:3b</code></div>
+      </div>
+    </div>
+    <div id="anthropicSettings" style="display:none">
+      <div class="field">
+        <label>Anthropic API Key</label>
+        <input type="password" id="apiKeyInput" placeholder="sk-ant-..." />
+        <div class="hint">Stored in localStorage only. Get a key at console.anthropic.com. Your Pro plan ($20/mo) does NOT include API access.</div>
+      </div>
+      <div class="field">
+        <label>Model</label>
+        <select id="modelSelect">
+          <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (fast, cheap)</option>
+          <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (balanced)</option>
+          <option value="claude-opus-4-6">Claude Opus 4.6 (most capable)</option>
+        </select>
+      </div>
+    </div>
+    <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
+      <button id="settingsCancel">Cancel</button>
+      <button class="primary" id="settingsSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept=".json" style="display:none" />
+
+<script>
+/* AGENTIX v1.0 — Visual Agent Builder */
+
+const NODE_TYPES = {
+  trigger: { name: 'Trigger', desc: 'Manual input', color: 'var(--node-trigger)', icon: '►', inputs: 0, outputs: 1,
+    fields: [{ key: 'input', label: 'Input text', type: 'textarea', placeholder: 'Hello agent...' }] },
+  llm: { name: 'Claude LLM', desc: 'Send prompt to LLM', color: 'var(--node-llm)', icon: '✦', inputs: 1, outputs: 1,
+    fields: [
+      { key: 'system', label: 'System prompt', type: 'textarea', placeholder: 'You are a helpful assistant.' },
+      { key: 'prompt', label: 'User prompt template', type: 'textarea', placeholder: 'Use {{input}} to reference previous node output.' },
+    ] },
+  http: { name: 'HTTP Request', desc: 'Call any API', color: 'var(--node-http)', icon: '→', inputs: 1, outputs: 1,
+    fields: [
+      { key: 'method', label: 'Method', type: 'select', options: ['GET', 'POST', 'PUT', 'DELETE'] },
+      { key: 'url', label: 'URL', type: 'text', placeholder: 'https://api.example.com/...' },
+      { key: 'body', label: 'Body (JSON, optional)', type: 'textarea', placeholder: '{"key": "{{input}}"}' },
+    ] },
+  condition: { name: 'Condition', desc: 'If contains, branch', color: 'var(--node-condition)', icon: '?', inputs: 1, outputs: 2,
+    fields: [
+      { key: 'contains', label: 'If output contains...', type: 'text', placeholder: 'success' },
+      { key: 'thenValue', label: 'Then output (port "then")', type: 'textarea', placeholder: 'matched' },
+      { key: 'elseValue', label: 'Else output (port "else")', type: 'textarea', placeholder: 'not matched' },
+    ] },
+  switch: { name: 'Switch', desc: 'Multi-branch routing', color: 'var(--node-switch)', icon: '⤨', inputs: 1, outputs: 'dynamic',
+    fields: [{ key: 'branches', label: 'Branches', type: 'branches' }] },
+  output: { name: 'Output', desc: 'Final result', color: 'var(--node-output)', icon: '■', inputs: 1, outputs: 0, fields: [] },
+};
+
+let state = {
+  nodes: {}, edges: [], selected: null, nextId: 1, agentName: 'untitled-agent',
+  view: { panX: 0, panY: 0, zoom: 1 },
+};
+
+let pendingConnection = null;
+let isPanning = false;
+let panStart = null;
+let spaceDown = false;
+
+const AUTOSAVE_KEY = 'agentix_autosave_v1';
+
+function saveSettings(s) {
+  localStorage.setItem('agentix_provider', s.provider);
+  localStorage.setItem('agentix_apikey', s.apiKey);
+  localStorage.setItem('agentix_model', s.model);
+  localStorage.setItem('agentix_ollama_url', s.ollamaUrl);
+  localStorage.setItem('agentix_ollama_model', s.ollamaModel);
+}
+function getSettings() {
+  const stored = localStorage.getItem('agentix_provider');
+  const defaultProvider = location.protocol === 'https:' ? 'anthropic' : 'ollama';
+  return {
+    provider: stored || defaultProvider,
+    apiKey: localStorage.getItem('agentix_apikey') || '',
+    model: localStorage.getItem('agentix_model') || 'claude-haiku-4-5-20251001',
+    ollamaUrl: localStorage.getItem('agentix_ollama_url') || 'http://localhost:11434',
+    ollamaModel: localStorage.getItem('agentix_ollama_model') || 'llama3.2:3b',
+  };
+}
+
+let autosaveTimer = null;
+function markDirty() {
+  const ind = document.getElementById('saveIndicator');
+  ind.classList.remove('saved');
+  ind.textContent = '●';
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => {
+    const data = { name: state.agentName, version: '1.0.0', nodes: state.nodes, edges: state.edges, view: state.view, nextId: state.nextId, savedAt: Date.now() };
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
+    ind.classList.add('saved');
+    ind.textContent = '✓ saved';
+    setTimeout(() => { if (ind.classList.contains('saved')) ind.textContent = '✓'; }, 1500);
+  }, 400);
+}
+function loadAutosave() {
+  const raw = localStorage.getItem(AUTOSAVE_KEY);
+  if (!raw) return false;
+  try {
+    const data = JSON.parse(raw);
+    if (!data.nodes || Object.keys(data.nodes).length === 0) return false;
+    state.nodes = data.nodes;
+    state.edges = (data.edges || []).map(normalizeEdge);
+    state.view = data.view || { panX: 0, panY: 0, zoom: 1 };
+    state.nextId = data.nextId || (Math.max(0, ...Object.keys(state.nodes).map(k => parseInt(k.slice(1)) || 0)) + 1);
+    state.agentName = data.name || 'untitled-agent';
+    return true;
+  } catch (e) { return false; }
+}
+function normalizeEdge(e) {
+  return { from: e.from, fromPort: e.fromPort ?? 0, to: e.to, toPort: e.toPort ?? 0 };
+}
+
+function nodeOutputCount(node) {
+  const def = NODE_TYPES[node.type];
+  if (def.outputs === 'dynamic') return (node.branches || []).length;
+  return def.outputs;
+}
+
+function renderPalette() {
+  const el = document.getElementById('palette');
+  el.innerHTML = '';
+  for (const [type, def] of Object.entries(NODE_TYPES)) {
+    const item = document.createElement('div');
+    item.className = 'palette-item';
+    item.draggable = true;
+    item.dataset.type = type;
+    item.innerHTML = `<div class="palette-icon" style="background:${def.color}">${def.icon}</div><div><div class="palette-name">${def.name}</div><div class="palette-desc">${def.desc}</div></div>`;
+    item.addEventListener('dragstart', e => { e.dataTransfer.setData('node-type', type); });
+    el.appendChild(item);
+  }
+}
+
+function screenToCanvas(sx, sy) {
+  const rect = document.getElementById('canvas').getBoundingClientRect();
+  return {
+    x: (sx - rect.left - state.view.panX) / state.view.zoom,
+    y: (sy - rect.top - state.view.panY) / state.view.zoom,
+  };
+}
+
+function applyViewTransform() {
+  const inner = document.getElementById('canvasInner');
+  inner.style.transform = `translate(${state.view.panX}px, ${state.view.panY}px) scale(${state.view.zoom})`;
+  document.getElementById('zoomValue').textContent = Math.round(state.view.zoom * 100) + '%';
+}
+
+const canvas = document.getElementById('canvas');
+canvas.addEventListener('dragover', e => { e.preventDefault(); canvas.classList.add('dragging-over'); });
+canvas.addEventListener('dragleave', () => canvas.classList.remove('dragging-over'));
+canvas.addEventListener('drop', e => {
+  e.preventDefault();
+  canvas.classList.remove('dragging-over');
+  const type = e.dataTransfer.getData('node-type');
+  if (!type) return;
+  const pos = screenToCanvas(e.clientX, e.clientY);
+  addNode(type, pos.x - 90, pos.y - 30);
+});
+
+function addNode(type, x, y) {
+  const id = 'n' + (state.nextId++);
+  const def = NODE_TYPES[type];
+  const config = {};
+  def.fields.forEach(f => { if (f.type !== 'branches') config[f.key] = f.options ? f.options[0] : ''; });
+  const node = { id, type, x, y, config };
+  if (type === 'switch') node.branches = ['option_a', 'option_b', 'option_c'];
+  state.nodes[id] = node;
+  renderNodes();
+  selectNode(id);
+  markDirty();
+}
+
+function deleteNode(id) {
+  delete state.nodes[id];
+  state.edges = state.edges.filter(e => e.from !== id && e.to !== id);
+  if (state.selected === id) state.selected = null;
+  renderNodes();
+  renderInspector();
+  markDirty();
+}
+
+function selectNode(id) { state.selected = id; renderNodes(); renderInspector(); }
+
+function renderNodes() {
+  const inner = document.getElementById('canvasInner');
+  inner.querySelectorAll('.node').forEach(n => n.remove());
+  document.getElementById('emptyState').style.display = Object.keys(state.nodes).length === 0 ? 'flex' : 'none';
+
+  for (const node of Object.values(state.nodes)) {
+    const def = NODE_TYPES[node.type];
+    const el = document.createElement('div');
+    el.className = 'node' + (state.selected === node.id ? ' selected' : '');
+    el.style.left = node.x + 'px';
+    el.style.top = node.y + 'px';
+    el.dataset.id = node.id;
+
+    let summary = '';
+    if (node.type === 'trigger') summary = `<code>${escapeHtml((node.config.input || '').slice(0, 40) || '(empty)')}</code>`;
+    else if (node.type === 'llm') summary = `<code>${escapeHtml((node.config.prompt || '').slice(0, 40) || '(no prompt)')}</code>`;
+    else if (node.type === 'http') summary = `${node.config.method || 'GET'} <code>${escapeHtml((node.config.url || '').slice(0, 30) || '(no url)')}</code>`;
+    else if (node.type === 'condition') summary = `if contains <code>${escapeHtml(node.config.contains || '?')}</code>`;
+    else if (node.type === 'switch') summary = `${(node.branches || []).length} branches`;
+    else if (node.type === 'output') summary = `<code>(receives final result)</code>`;
+
+    let portsHtml = '';
+    if (def.inputs > 0) portsHtml += `<div class="port in" data-id="${node.id}" data-port="0"></div>`;
+    const outCount = nodeOutputCount(node);
+    if (outCount === 1) portsHtml += `<div class="port out single" data-id="${node.id}" data-port="0"></div>`;
+
+    let branchListHtml = '';
+    if (node.type === 'switch' || node.type === 'condition') {
+      const labels = node.type === 'condition' ? ['then', 'else'] : (node.branches || []);
+      branchListHtml = '<div class="branch-list">';
+      labels.forEach((label, i) => {
+        branchListHtml += `<div class="branch-row"><span class="branch-label">${escapeHtml(label)}</span><div class="port out branch-port" data-id="${node.id}" data-port="${i}"></div></div>`;
+      });
+      branchListHtml += '</div>';
+    }
+
+    el.innerHTML = `${portsHtml}<div class="node-header"><div class="node-dot" style="background:${def.color}"></div>${def.name}<span class="node-id">${node.id}</span></div><div class="node-body">${summary}</div>${branchListHtml}`;
+
+    let dragging = false, ox = 0, oy = 0;
+    el.addEventListener('mousedown', e => {
+      if (e.target.classList.contains('port')) return;
+      if (spaceDown) return;
+      dragging = true;
+      const pos = screenToCanvas(e.clientX, e.clientY);
+      ox = pos.x - node.x;
+      oy = pos.y - node.y;
+      selectNode(node.id);
+      e.stopPropagation();
+    });
+    document.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      const pos = screenToCanvas(e.clientX, e.clientY);
+      node.x = pos.x - ox;
+      node.y = pos.y - oy;
+      el.style.left = node.x + 'px';
+      el.style.top = node.y + 'px';
+      renderConnections();
+      markDirty();
+    });
+    document.addEventListener('mouseup', () => dragging = false);
+
+    el.querySelectorAll('.port').forEach(port => {
+      port.addEventListener('mousedown', e => {
+        e.stopPropagation();
+        if (port.classList.contains('out')) {
+          pendingConnection = { fromId: node.id, fromPort: parseInt(port.dataset.port) };
+        }
+      });
+      port.addEventListener('mouseup', e => {
+        e.stopPropagation();
+        if (pendingConnection && port.classList.contains('in') && pendingConnection.fromId !== node.id) {
+          const exists = state.edges.find(ed => ed.from === pendingConnection.fromId && ed.fromPort === pendingConnection.fromPort && ed.to === node.id);
+          if (!exists) {
+            state.edges.push({ from: pendingConnection.fromId, fromPort: pendingConnection.fromPort, to: node.id, toPort: 0 });
+          }
+          renderConnections();
+          markDirty();
+        }
+        pendingConnection = null;
+      });
+    });
+
+    inner.appendChild(el);
+  }
+  renderConnections();
+}
+
+function renderConnections() {
+  const svg = document.getElementById('connections');
+  svg.innerHTML = '';
+  const inner = document.getElementById('canvasInner');
+  const innerRect = inner.getBoundingClientRect();
+  const svgOffsetX = -10000;
+  const svgOffsetY = -10000;
+
+  for (const edge of state.edges) {
+    const fromNode = inner.querySelector(`.node[data-id="${edge.from}"]`);
+    const toNode = inner.querySelector(`.node[data-id="${edge.to}"]`);
+    if (!fromNode || !toNode) continue;
+
+    const fromPort = fromNode.querySelector(`.port.out[data-port="${edge.fromPort}"]`);
+    const toPort = toNode.querySelector(`.port.in[data-port="${edge.toPort}"]`);
+    if (!fromPort || !toPort) continue;
+
+    const fr = fromPort.getBoundingClientRect();
+    const tr = toPort.getBoundingClientRect();
+
+    const x1 = (fr.left + fr.width / 2 - innerRect.left) / state.view.zoom - svgOffsetX;
+    const y1 = (fr.top + fr.height / 2 - innerRect.top) / state.view.zoom - svgOffsetY;
+    const x2 = (tr.left + tr.width / 2 - innerRect.left) / state.view.zoom - svgOffsetX;
+    const y2 = (tr.top + tr.height / 2 - innerRect.top) / state.view.zoom - svgOffsetY;
+
+    const dx = Math.abs(x2 - x1) * 0.5;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M ${x1} ${y1} C ${x1+dx} ${y1}, ${x2-dx} ${y2}, ${x2} ${y2}`);
+    path.style.pointerEvents = 'stroke';
+    path.style.cursor = 'pointer';
+    path.addEventListener('click', () => {
+      if (confirm('Remove this connection?')) {
+        state.edges = state.edges.filter(e => !(e.from === edge.from && e.fromPort === edge.fromPort && e.to === edge.to && e.toPort === edge.toPort));
+        renderConnections();
+        markDirty();
+      }
+    });
+    svg.appendChild(path);
+  }
+}
+
+function renderInspector() {
+  const el = document.getElementById('inspector');
+  if (!state.selected || !state.nodes[state.selected]) {
+    el.innerHTML = `<div class="section-title">Inspector</div><p class="empty">Select a node to configure it. Or drag a new one from the left to start building.</p>`;
+    return;
+  }
+  const node = state.nodes[state.selected];
+  const def = NODE_TYPES[node.type];
+  let html = `<div class="section-title">${def.name} · ${node.id}</div>`;
+
+  for (const f of def.fields) {
+    if (f.type === 'branches') {
+      html += `<div class="field"><label>${f.label}</label><div class="branch-editor" id="branchEditor"></div><div class="hint">Each branch becomes an output port. The Switch routes based on whether the input contains the branch label (case insensitive).</div></div>`;
+    } else if (f.type === 'textarea') {
+      const val = escapeHtml(node.config[f.key] || '');
+      html += `<div class="field"><label>${f.label}</label><textarea data-key="${f.key}" placeholder="${f.placeholder || ''}">${val}</textarea></div>`;
+    } else if (f.type === 'select') {
+      html += `<div class="field"><label>${f.label}</label><select data-key="${f.key}">`;
+      for (const opt of f.options) html += `<option value="${opt}" ${opt === node.config[f.key] ? 'selected' : ''}>${opt}</option>`;
+      html += `</select></div>`;
+    } else {
+      const val = escapeHtml(node.config[f.key] || '');
+      html += `<div class="field"><label>${f.label}</label><input type="text" data-key="${f.key}" value="${val}" placeholder="${f.placeholder || ''}" /></div>`;
+    }
+  }
+
+  if (node.type === 'llm' || node.type === 'http') {
+    html += `<div class="field"><div class="hint">Use <code>{{input}}</code> for previous node output, or <code>{{n1}}</code>, <code>{{n2}}</code>, etc. to reference any prior node by id.</div></div>`;
+  }
+
+  html += `<button class="delete-node">Delete Node</button>`;
+  el.innerHTML = html;
+
+  el.querySelectorAll('input[data-key], textarea[data-key], select[data-key]').forEach(input => {
+    input.addEventListener('input', () => {
+      node.config[input.dataset.key] = input.value;
+      renderNodes();
+      markDirty();
+    });
+  });
+
+  if (node.type === 'switch') renderBranchEditor(node);
+
+  el.querySelector('.delete-node').addEventListener('click', () => {
+    if (confirm('Delete this node?')) deleteNode(node.id);
+  });
+}
+
+function renderBranchEditor(node) {
+  const editor = document.getElementById('branchEditor');
+  if (!editor) return;
+  if (!node.branches) node.branches = [];
+  let html = '';
+  node.branches.forEach((b, i) => {
+    html += `<div class="branch-item"><span class="branch-num">${i + 1}</span><input type="text" value="${escapeHtml(b)}" data-branch-idx="${i}" placeholder="branch label" /><button class="remove-branch" data-remove="${i}">×</button></div>`;
+  });
+  html += `<button class="add-branch">＋ Add branch</button>`;
+  editor.innerHTML = html;
+
+  editor.querySelectorAll('input[data-branch-idx]').forEach(input => {
+    input.addEventListener('input', () => {
+      const idx = parseInt(input.dataset.branchIdx);
+      node.branches[idx] = input.value;
+      renderNodes();
+      markDirty();
+    });
+  });
+  editor.querySelectorAll('[data-remove]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.remove);
+      node.branches.splice(idx, 1);
+      state.edges = state.edges.filter(e => !(e.from === node.id && e.fromPort === idx));
+      state.edges.forEach(e => { if (e.from === node.id && e.fromPort > idx) e.fromPort--; });
+      renderNodes();
+      renderInspector();
+      markDirty();
+    });
+  });
+  editor.querySelector('.add-branch').addEventListener('click', () => {
+    node.branches.push('branch_' + (node.branches.length + 1));
+    renderNodes();
+    renderInspector();
+    markDirty();
+  });
+}
+
+async function runAgent() {
+  const settings = getSettings();
+  const runPanel = document.getElementById('runPanel');
+  const runBody = document.getElementById('runBody');
+  const runStatus = document.getElementById('runStatus');
+  runPanel.classList.add('open');
+  runBody.innerHTML = '';
+  runStatus.className = 'status running';
+  runStatus.textContent = 'running...';
+
+  const trigger = Object.values(state.nodes).find(n => n.type === 'trigger');
+  if (!trigger) {
+    log('error', 'No Trigger node found. Add one to start.', '');
+    runStatus.className = 'status error';
+    runStatus.textContent = 'error';
+    return;
+  }
+
+  const ctx = {};
+  const next = {};
+  for (const e of state.edges) {
+    if (!next[e.from]) next[e.from] = [];
+    next[e.from].push({ toId: e.to, fromPort: e.fromPort });
+  }
+
+  let value = trigger.config.input || '';
+  ctx[trigger.id] = value;
+  log('success', `Trigger fired (${trigger.id})`, value);
+
+  let current = trigger;
+  let lastUsedPort = 0;
+  const visited = new Set([trigger.id]);
+
+  while (true) {
+    const outgoing = next[current.id] || [];
+    if (outgoing.length === 0) break;
+    const matching = outgoing.find(o => o.fromPort === lastUsedPort);
+    const chosen = matching || outgoing[0];
+    if (visited.has(chosen.toId)) { log('error', `Cycle detected at ${chosen.toId}`, ''); break; }
+    visited.add(chosen.toId);
+    const node = state.nodes[chosen.toId];
+    if (!node) break;
+
+    document.querySelectorAll('.node').forEach(n => n.classList.remove('executing'));
+    const nodeEl = document.querySelector(`.node[data-id="${node.id}"]`);
+    if (nodeEl) nodeEl.classList.add('executing');
+
+    try {
+      lastUsedPort = 0;
+
+      if (node.type === 'llm') {
+        const sys = renderTemplate(node.config.system || '', value, ctx);
+        const user = renderTemplate(node.config.prompt || '{{input}}', value, ctx);
+
+        if (settings.provider === 'ollama') {
+          const ollamaIsHttp = settings.ollamaUrl.startsWith('http://');
+          const pageIsHttps = location.protocol === 'https:';
+          if (pageIsHttps && ollamaIsHttp) {
+            throw new Error('Mixed content blocked: HTTPS page cannot reach HTTP localhost. Run the builder locally with `python3 -m http.server 8000` and open it via http://localhost:8000/builder.html');
+          }
+          log('success', `Calling Ollama (${settings.ollamaModel}) [${node.id}]`, `system: ${sys.slice(0,80)}\nuser: ${user.slice(0,80)}`);
+          const messages = [];
+          if (sys) messages.push({ role: 'system', content: sys });
+          messages.push({ role: 'user', content: user });
+          let res;
+          try {
+            res = await fetch(settings.ollamaUrl.replace(/\/$/, '') + '/api/chat', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ model: settings.ollamaModel, messages, stream: false }),
+            });
+          } catch (e) {
+            throw new Error('Cannot reach Ollama at ' + settings.ollamaUrl + '. Is it running? Did you set OLLAMA_ORIGINS="*"?');
+          }
+          if (!res.ok) throw new Error(`Ollama error ${res.status}: ${await res.text()}`);
+          const data = await res.json();
+          value = data.message?.content || '';
+          log('success', `Ollama responded`, value);
+        } else {
+          if (!settings.apiKey) throw new Error('No Anthropic API key set. Click ⚙ Provider in the header.');
+          log('success', `Calling Claude (${settings.model}) [${node.id}]`, `system: ${sys.slice(0,80)}\nuser: ${user.slice(0,80)}`);
+          const res = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              'x-api-key': settings.apiKey,
+              'anthropic-version': '2023-06-01',
+              'anthropic-dangerous-direct-browser-access': 'true',
+            },
+            body: JSON.stringify({ model: settings.model, max_tokens: 1024, system: sys || undefined, messages: [{ role: 'user', content: user }] }),
+          });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error.message);
+          value = data.content?.[0]?.text || '';
+          log('success', `Claude responded`, value);
+        }
+      } else if (node.type === 'http') {
+        const url = renderTemplate(node.config.url || '', value, ctx);
+        const opts = { method: node.config.method || 'GET' };
+        if (node.config.body && opts.method !== 'GET') {
+          opts.headers = { 'content-type': 'application/json' };
+          opts.body = renderTemplate(node.config.body, value, ctx);
+        }
+        log('success', `${opts.method} ${url} [${node.id}]`, '');
+        const res = await fetch(url, opts);
+        const text = await res.text();
+        value = text;
+        log('success', `HTTP ${res.status}`, text.slice(0, 500));
+      } else if (node.type === 'condition') {
+        const matched = value.includes(node.config.contains || '');
+        value = matched ? (node.config.thenValue || '') : (node.config.elseValue || '');
+        lastUsedPort = matched ? 0 : 1;
+        log('success', `Condition [${node.id}]: ${matched ? 'matched → then' : 'no match → else'}`, value);
+      } else if (node.type === 'switch') {
+        const branches = node.branches || [];
+        const lower = value.toLowerCase();
+        let matchedIdx = -1;
+        for (let i = 0; i < branches.length; i++) {
+          if (lower.includes(branches[i].toLowerCase())) { matchedIdx = i; break; }
+        }
+        if (matchedIdx === -1) {
+          log('error', `Switch [${node.id}]: no branch matched`, `value: ${value}\nbranches: ${branches.join(', ')}`);
+          throw new Error(`Switch did not match any branch: ${branches.join(', ')}`);
+        }
+        lastUsedPort = matchedIdx;
+        log('success', `Switch [${node.id}]: matched "${branches[matchedIdx]}" (port ${matchedIdx})`, value);
+      } else if (node.type === 'output') {
+        log('success', `Final output [${node.id}]`, value);
+      }
+
+      ctx[node.id] = value;
+    } catch (err) {
+      if (nodeEl) { nodeEl.classList.remove('executing'); nodeEl.classList.add('error'); }
+      log('error', `Error in ${node.type} [${node.id}]`, err.message);
+      runStatus.className = 'status error';
+      runStatus.textContent = 'error';
+      return;
+    }
+    current = node;
+  }
+
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('executing'));
+  runStatus.className = 'status idle';
+  runStatus.textContent = 'done';
+}
+
+function renderTemplate(tpl, immediateInput, ctx) {
+  let result = tpl.replaceAll('{{input}}', immediateInput);
+  result = result.replace(/\{\{(n\d+)\}\}/g, (_, key) => ctx[key] !== undefined ? ctx[key] : '');
+  return result;
+}
+
+function log(type, label, content) {
+  const body = document.getElementById('runBody');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry ' + type;
+  entry.innerHTML = `<span class="node-tag">${escapeHtml(label)}</span>${content ? '<pre>' + escapeHtml(content) + '</pre>' : ''}`;
+  body.appendChild(entry);
+  body.scrollTop = body.scrollHeight;
+}
+
+function exportAgent() {
+  const data = { name: state.agentName, version: '1.0.0', nodes: state.nodes, edges: state.edges, view: state.view };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${state.agentName}.agentix.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importAgent(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      state.nodes = data.nodes || {};
+      state.edges = (data.edges || []).map(normalizeEdge);
+      state.view = data.view || { panX: 0, panY: 0, zoom: 1 };
+      state.agentName = data.name || 'imported-agent';
+      state.nextId = Math.max(0, ...Object.keys(state.nodes).map(k => parseInt(k.slice(1)) || 0)) + 1;
+      document.getElementById('agentName').value = state.agentName;
+      applyViewTransform();
+      renderNodes();
+      renderInspector();
+      markDirty();
+    } catch (err) { alert('Invalid agent file: ' + err.message); }
+  };
+  reader.readAsText(file);
+}
+
+function setupPanZoom() {
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    const newZoom = Math.max(0.25, Math.min(2.5, state.view.zoom * delta));
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    state.view.panX = mx - (mx - state.view.panX) * (newZoom / state.view.zoom);
+    state.view.panY = my - (my - state.view.panY) * (newZoom / state.view.zoom);
+    state.view.zoom = newZoom;
+    applyViewTransform();
+    markDirty();
+  }, { passive: false });
+
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      spaceDown = true;
+      canvas.style.cursor = 'grab';
+    }
+  });
+  document.addEventListener('keyup', e => {
+    if (e.code === 'Space') { spaceDown = false; canvas.style.cursor = ''; }
+  });
+
+  canvas.addEventListener('mousedown', e => {
+    if (spaceDown || e.button === 1) {
+      e.preventDefault();
+      isPanning = true;
+      panStart = { x: e.clientX - state.view.panX, y: e.clientY - state.view.panY };
+      canvas.classList.add('panning');
+    }
+  });
+  document.addEventListener('mousemove', e => {
+    if (isPanning) {
+      state.view.panX = e.clientX - panStart.x;
+      state.view.panY = e.clientY - panStart.y;
+      applyViewTransform();
+    }
+  });
+  document.addEventListener('mouseup', () => {
+    if (isPanning) { isPanning = false; canvas.classList.remove('panning'); markDirty(); }
+  });
+
+  document.getElementById('zoomIn').addEventListener('click', () => zoomBy(1.2));
+  document.getElementById('zoomOut').addEventListener('click', () => zoomBy(1/1.2));
+  document.getElementById('zoomReset').addEventListener('click', () => {
+    state.view = { panX: 0, panY: 0, zoom: 1 };
+    applyViewTransform();
+    markDirty();
+  });
+}
+
+function zoomBy(factor) {
+  const newZoom = Math.max(0.25, Math.min(2.5, state.view.zoom * factor));
+  const rect = canvas.getBoundingClientRect();
+  const cx = rect.width / 2;
+  const cy = rect.height / 2;
+  state.view.panX = cx - (cx - state.view.panX) * (newZoom / state.view.zoom);
+  state.view.panY = cy - (cy - state.view.panY) * (newZoom / state.view.zoom);
+  state.view.zoom = newZoom;
+  applyViewTransform();
+  markDirty();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+document.getElementById('agentName').addEventListener('input', e => { state.agentName = e.target.value; markDirty(); });
+document.getElementById('runBtn').addEventListener('click', runAgent);
+document.getElementById('saveBtn').addEventListener('click', exportAgent);
+document.getElementById('loadBtn').addEventListener('click', () => document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (e.target.files[0]) importAgent(e.target.files[0]);
+  e.target.value = '';
+});
+document.getElementById('newBtn').addEventListener('click', () => {
+  if (confirm('Start over? Current work will be cleared.')) {
+    state = { nodes: {}, edges: [], selected: null, nextId: 1, agentName: 'untitled-agent', view: { panX: 0, panY: 0, zoom: 1 } };
+    document.getElementById('agentName').value = state.agentName;
+    applyViewTransform();
+    renderNodes();
+    renderInspector();
+    markDirty();
+  }
+});
+
+document.getElementById('settingsBtn').addEventListener('click', () => {
+  const s = getSettings();
+  document.getElementById('providerSelect').value = s.provider;
+  document.getElementById('apiKeyInput').value = s.apiKey;
+  document.getElementById('modelSelect').value = s.model;
+  document.getElementById('ollamaUrlInput').value = s.ollamaUrl;
+  document.getElementById('ollamaModelSelect').value = s.ollamaModel;
+  toggleProviderPanels(s.provider);
+  document.getElementById('settingsModal').classList.add('open');
+});
+document.getElementById('providerSelect').addEventListener('change', e => toggleProviderPanels(e.target.value));
+function toggleProviderPanels(provider) {
+  document.getElementById('ollamaSettings').style.display = provider === 'ollama' ? 'block' : 'none';
+  document.getElementById('anthropicSettings').style.display = provider === 'anthropic' ? 'block' : 'none';
+  const onHttps = location.protocol === 'https:';
+  document.getElementById('httpsWarning').style.display = (provider === 'ollama' && onHttps) ? 'block' : 'none';
+}
+document.getElementById('settingsCancel').addEventListener('click', () => document.getElementById('settingsModal').classList.remove('open'));
+document.getElementById('settingsSave').addEventListener('click', () => {
+  saveSettings({
+    provider: document.getElementById('providerSelect').value,
+    apiKey: document.getElementById('apiKeyInput').value,
+    model: document.getElementById('modelSelect').value,
+    ollamaUrl: document.getElementById('ollamaUrlInput').value || 'http://localhost:11434',
+    ollamaModel: document.getElementById('ollamaModelSelect').value,
+  });
+  document.getElementById('settingsModal').classList.remove('open');
+});
+document.getElementById('runHeader').addEventListener('click', () => document.getElementById('runPanel').classList.toggle('open'));
+canvas.addEventListener('mousedown', e => {
+  if (spaceDown) return;
+  if (e.target === canvas || e.target.tagName === 'svg' || e.target.tagName === 'path') selectNode(null);
+});
+
+renderPalette();
+setupPanZoom();
+const restored = loadAutosave();
+if (restored) document.getElementById('agentName').value = state.agentName;
+applyViewTransform();
+renderNodes();
+renderInspector();
+</script>
+
+</body>
+</html>
