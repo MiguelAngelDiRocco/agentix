@@ -1,49 +1,45 @@
-{
-  "name": "whatsapp-clinic-autoresponder",
-  "version": "0.1.0",
-  "description": "Classifies incoming WhatsApp messages from patients into 4 intents: appointment booking, pricing inquiry, urgent medical question, or general info. Generates a context-aware response in Spanish for each. Built for clinics, doctors, and health professionals in LATAM. Plug-and-play with WhatsApp Business API.",
-  "nodes": {
-    "n1": {
-      "id": "n1",
-      "type": "trigger",
-      "x": 60,
-      "y": 160,
-      "config": {
-        "input": "Hola buenas tardes, quería saber si atienden OSDE 410 y si tienen turno para esta semana con la dra. Garcia. Gracias!"
-      }
-    },
-    "n2": {
-      "id": "n2",
-      "type": "llm",
-      "x": 320,
-      "y": 160,
-      "config": {
-        "system": "Eres un asistente de recepción para una clínica médica en Argentina. Recibes mensajes de pacientes por WhatsApp y debes clasificar la intención del mensaje en EXACTAMENTE una de estas 4 categorías:\n\n- TURNO: el paciente quiere reservar, modificar o cancelar un turno\n- PRECIO: el paciente pregunta por costos, obras sociales o cobertura\n- URGENTE: el paciente describe síntomas graves o una emergencia médica\n- INFO: cualquier otra consulta general (horarios, ubicación, servicios)\n\nResponde con UNA SOLA palabra: TURNO, PRECIO, URGENTE o INFO. Sin explicaciones, sin texto adicional.",
-        "prompt": "Clasifica este mensaje de WhatsApp:\n\n{{input}}"
-      }
-    },
-    "n3": {
-      "id": "n3",
-      "type": "condition",
-      "x": 580,
-      "y": 160,
-      "config": {
-        "contains": "URGENTE",
-        "thenValue": "🚨 ALERTA: Mensaje urgente detectado. Notificar inmediatamente al personal médico de guardia. Respuesta automática enviada al paciente: 'Hola, recibimos tu mensaje y entendemos que es urgente. Si es una emergencia médica grave, llamá al 107 (SAME) ahora mismo. Un miembro de nuestro equipo te va a contactar en los próximos minutos.'",
-        "elseValue": "✅ Mensaje no urgente. Procesar con respuesta automática estándar según la categoría detectada (TURNO, PRECIO o INFO). Generar respuesta personalizada con información de la clínica, derivar a recepción humana si requiere acción específica."
-      }
-    },
-    "n4": {
-      "id": "n4",
-      "type": "output",
-      "x": 880,
-      "y": 160,
-      "config": {}
-    }
-  },
-  "edges": [
-    { "from": "n1", "to": "n2" },
-    { "from": "n2", "to": "n3" },
-    { "from": "n3", "to": "n4" }
-  ]
-}
+	
+name	"whatsapp-clinic-autoresponder"
+version	"0.1.0"
+description	"Classifies incoming WhatsApp messages from patients into 4 intents: appointment booking, pricing inquiry, urgent medical question, or general info. Generates a context-aware response in Spanish for each. Built for clinics, doctors, and health professionals in LATAM. Plug-and-play with WhatsApp Business API."
+nodes	
+n1	
+id	"n1"
+type	"trigger"
+x	60
+y	160
+config	
+input	"Hola buenas tardes, quería saber si atienden OSDE 410 y si tienen turno para esta semana con la dra. Garcia. Gracias!"
+n2	
+id	"n2"
+type	"llm"
+x	320
+y	160
+config	
+system	"Eres un asistente de recepción para una clínica médica en Argentina. Recibes mensajes de pacientes por WhatsApp y debes clasificar la intención del mensaje en EXACTAMENTE una de estas 4 categorías:\n\n- TURNO: el paciente quiere reservar, modificar o cancelar un turno\n- PRECIO: el paciente pregunta por costos, obras sociales o cobertura\n- URGENTE: el paciente describe síntomas graves o una emergencia médica\n- INFO: cualquier otra consulta general (horarios, ubicación, servicios)\n\nResponde con UNA SOLA palabra: TURNO, PRECIO, URGENTE o INFO. Sin explicaciones, sin texto adicional."
+prompt	"Clasifica este mensaje de WhatsApp:\n\n{{input}}"
+n3	
+id	"n3"
+type	"condition"
+x	580
+y	160
+config	
+contains	"URGENTE"
+thenValue	"🚨 ALERTA: Mensaje urgente detectado. Notificar inmediatamente al personal médico de guardia. Respuesta automática enviada al paciente: 'Hola, recibimos tu mensaje y entendemos que es urgente. Si es una emergencia médica grave, llamá al 107 (SAME) ahora mismo. Un miembro de nuestro equipo te va a contactar en los próximos minutos.'"
+elseValue	"✅ Mensaje no urgente. Procesar con respuesta automática estándar según la categoría detectada (TURNO, PRECIO o INFO). Generar respuesta personalizada con información de la clínica, derivar a recepción humana si requiere acción específica."
+n4	
+id	"n4"
+type	"output"
+x	880
+y	160
+config	{}
+edges	
+0	
+from	"n1"
+to	"n2"
+1	
+from	"n2"
+to	"n3"
+2	
+from	"n3"
+to	"n4"
