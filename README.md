@@ -28,7 +28,7 @@ The product is dead simple:
 You don't need to install anything to use the builder. Seriously.
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/agentix.git
+git clone https://github.com/MiguelAngelDiRocco/agentix.git
 cd agentix
 open builder.html   # or just double-click it
 ```
