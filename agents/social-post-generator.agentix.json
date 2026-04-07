@@ -1,0 +1,37 @@
+{
+  "name": "social-post-generator",
+  "version": "0.1.0",
+  "description": "Takes any topic, article, or insight and generates 5 ready-to-post social media variants in different tones: professional (LinkedIn), conversational (Twitter/X), bold/punchy, question-based, and storytelling. For creators, marketers, and founders building in public.",
+  "nodes": {
+    "n1": {
+      "id": "n1",
+      "type": "trigger",
+      "x": 80,
+      "y": 140,
+      "config": {
+        "input": "I just launched my open source project Agentix — a visual builder for AI agents that runs locally with Ollama. No code, no servers, no token middleman. The whole product is one HTML file."
+      }
+    },
+    "n2": {
+      "id": "n2",
+      "type": "llm",
+      "x": 380,
+      "y": 140,
+      "config": {
+        "system": "You are an expert social media writer. Given a topic or update, you generate 5 distinct post variants optimized for engagement. Each variant should be 280 characters or less and have a clearly different angle. Use this exact format:\n\n1. PROFESSIONAL (LinkedIn):\n[post text]\n\n2. CONVERSATIONAL (Twitter/X):\n[post text]\n\n3. BOLD & PUNCHY:\n[post text]\n\n4. QUESTION HOOK:\n[post text]\n\n5. STORYTELLING:\n[post text]\n\nDo not add any preamble, explanation, or hashtags unless they fit naturally.",
+        "prompt": "Generate 5 social post variants for this update:\n\n{{input}}"
+      }
+    },
+    "n3": {
+      "id": "n3",
+      "type": "output",
+      "x": 680,
+      "y": 140,
+      "config": {}
+    }
+  },
+  "edges": [
+    { "from": "n1", "to": "n2" },
+    { "from": "n2", "to": "n3" }
+  ]
+}

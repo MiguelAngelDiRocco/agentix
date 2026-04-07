@@ -1,0 +1,43 @@
+{
+  "name": "whatsapp-clinic-autoresponder",
+  "version": "1.0.0",
+  "description": "Classifies incoming WhatsApp messages from patients into 4 intents using a Switch node, then generates a tailored Spanish response for each. TURNO routes to appointment booking, PRECIO to pricing/insurance, URGENTE to emergency protocol, INFO to general questions. Built for clinics in LATAM. Demonstrates v1.0 Switch node multi-branch routing.",
+  "nodes": {
+    "n1": { "id": "n1", "type": "trigger", "x": 40, "y": 280, "config": { "input": "Hola buenas tardes, quería saber si atienden OSDE 410 y si tienen turno para esta semana con la dra. Garcia. Gracias!" } },
+    "n2": { "id": "n2", "type": "llm", "x": 280, "y": 280, "config": {
+      "system": "Eres un asistente de recepción para una clínica médica en Argentina. Clasifica el mensaje del paciente en EXACTAMENTE una de estas 4 categorías:\n- TURNO: quiere reservar, modificar o cancelar un turno\n- PRECIO: pregunta por costos, obras sociales o cobertura\n- URGENTE: describe síntomas graves o emergencia médica\n- INFO: cualquier otra consulta general\n\nResponde con UNA SOLA palabra: TURNO, PRECIO, URGENTE o INFO. Sin explicaciones.",
+      "prompt": "Clasifica este mensaje:\n\n{{input}}"
+    } },
+    "n3": { "id": "n3", "type": "switch", "x": 540, "y": 280, "config": {}, "branches": ["TURNO", "PRECIO", "URGENTE", "INFO"] },
+    "n4": { "id": "n4", "type": "llm", "x": 820, "y": 60, "config": {
+      "system": "Eres recepcionista de la Clínica San Martín en Mar del Plata. Generas respuestas cálidas y profesionales para pacientes que quieren reservar turnos. Mencioná que recepción se va a contactar a la brevedad. Máximo 3 oraciones, español rioplatense.",
+      "prompt": "El paciente quiere un turno. Generá respuesta confirmando recepción y derivando a recepción humana.\n\nMensaje original: {{n1}}"
+    } },
+    "n5": { "id": "n5", "type": "llm", "x": 820, "y": 220, "config": {
+      "system": "Eres recepcionista de la Clínica San Martín en Mar del Plata. Atendemos: OSDE (todos los planes), Swiss Medical, Galeno, Medicus, IOMA, PAMI. Particulares: consulta general $15.000 ARS. Generá respuestas claras sobre cobertura. Máximo 4 oraciones, español rioplatense.",
+      "prompt": "El paciente pregunta por precios o cobertura. Respondé con info relevante.\n\nMensaje original: {{n1}}"
+    } },
+    "n6": { "id": "n6", "type": "llm", "x": 820, "y": 380, "config": {
+      "system": "Eres el sistema de emergencias de la Clínica San Martín. Si el paciente describe síntomas graves, indicá que llame YA al 107 (SAME) y que el equipo de guardia se contactará en minutos. Tono serio y contenedor, sin alarmismo. Máximo 3 oraciones, español rioplatense.",
+      "prompt": "🚨 URGENTE detectado. Generá respuesta de protocolo de emergencia.\n\nMensaje original: {{n1}}"
+    } },
+    "n7": { "id": "n7", "type": "llm", "x": 820, "y": 540, "config": {
+      "system": "Eres recepcionista de la Clínica San Martín en Mar del Plata. Datos: Av. Colón 1850, lunes a viernes 8-20hs, sábados 9-13hs. Especialidades: clínica médica, pediatría, ginecología, cardiología, dermatología, nutrición. Estacionamiento propio. Máximo 4 oraciones, español rioplatense.",
+      "prompt": "El paciente hizo una consulta general. Respondé con la info relevante.\n\nMensaje original: {{n1}}"
+    } },
+    "n8": { "id": "n8", "type": "output", "x": 1140, "y": 280, "config": {} }
+  },
+  "edges": [
+    { "from": "n1", "fromPort": 0, "to": "n2", "toPort": 0 },
+    { "from": "n2", "fromPort": 0, "to": "n3", "toPort": 0 },
+    { "from": "n3", "fromPort": 0, "to": "n4", "toPort": 0 },
+    { "from": "n3", "fromPort": 1, "to": "n5", "toPort": 0 },
+    { "from": "n3", "fromPort": 2, "to": "n6", "toPort": 0 },
+    { "from": "n3", "fromPort": 3, "to": "n7", "toPort": 0 },
+    { "from": "n4", "fromPort": 0, "to": "n8", "toPort": 0 },
+    { "from": "n5", "fromPort": 0, "to": "n8", "toPort": 0 },
+    { "from": "n6", "fromPort": 0, "to": "n8", "toPort": 0 },
+    { "from": "n7", "fromPort": 0, "to": "n8", "toPort": 0 }
+  ],
+  "view": { "panX": 0, "panY": 0, "zoom": 1 }
+}
